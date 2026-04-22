@@ -149,19 +149,24 @@
   letter-spacing: .12em;
 }
 
-/* ── 営業時間セル（クリックで編集） ────────────── */
-.shift-table td.eigyou {
+/* ── 編集可能セル（営業時間・スタッフ）クリックで編集 ────────────── */
+.shift-table td.eigyou,
+.shift-table td.staff-cell {
   cursor: pointer;
   transition: background-color .1s ease;
   font-weight: 500;
   color: #2d3748;
   padding: 0;
 }
-.shift-table td.eigyou:hover { background-color: #f7fafc; }
-.shift-table td.eigyou.sat:hover { background-color: #f0f8ff; }
-.shift-table td.eigyou.sun:hover { background-color: #fff5f5; }
+.shift-table td.eigyou:hover,
+.shift-table td.staff-cell:hover { background-color: #f7fafc; }
+.shift-table td.eigyou.sat:hover,
+.shift-table td.staff-cell.sat:hover { background-color: #f0f8ff; }
+.shift-table td.eigyou.sun:hover,
+.shift-table td.staff-cell.sun:hover { background-color: #fff5f5; }
 
-.shift-table td.eigyou .eigyou-display {
+.shift-table td.eigyou .eigyou-display,
+.shift-table td.staff-cell .staff-display {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -173,14 +178,17 @@
   font-size: 15px;
   font-weight: 500;
 }
-.shift-table td.eigyou .eigyou-display.is-empty {
+.shift-table td.eigyou .eigyou-display.is-empty,
+.shift-table td.staff-cell .staff-display.is-empty {
   color: #a0aec0;
   font-weight: 400;
 }
 
 /* 編集中（プルダウン表示）*/
-.shift-table td.eigyou.editing { padding: 0; }
-.shift-table .pattern-select {
+.shift-table td.eigyou.editing,
+.shift-table td.staff-cell.editing { padding: 0; }
+.shift-table .pattern-select,
+.shift-table .staff-select {
   width: 100%;
   height: 60px;
   border: 2px solid #4c6ef5;
@@ -201,12 +209,14 @@
   text-align: center;
   outline: none;
 }
-.shift-table .pattern-select.is-saving {
+.shift-table .pattern-select.is-saving,
+.shift-table .staff-select.is-saving {
   background-color: #fffaf0;
   border-color: #ed8936;
   cursor: wait;
 }
-.shift-table .pattern-select option {
+.shift-table .pattern-select option,
+.shift-table .staff-select option {
   color: #2d3748;
   font-size: 15px;
 }
