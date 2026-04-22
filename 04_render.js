@@ -151,14 +151,37 @@
         const recordId = (rec && rec['$id'] && rec['$id'].value) || '';
         td.dataset.current = name;
         td.dataset.recordId = recordId;
-        const display = td.querySelector('.staff-display');
-        if (display) {
-          display.textContent = name || '未設定';
-          display.classList.toggle('is-empty', !name);
-        }
+        td.innerHTML = Render.buildStaffCellInner(rec);
       });
     },
+
+    // スタッフセルの内部HTMLを生成（record がなければ「未設定」の単一行）
+    // ※ HTMLは1行にまとめる。親tdの white-space: pre-line が効くと改行がテキスト化され中央寄せが崩れるため
+    buildStaffCellInner(rec) {
+      if (!rec) return '<span class="staff-display is-empty">未設定</span>';
+      const name  = (rec['従業員名'] && rec['従業員名'].value) || '';
+      const sTime = (rec['開始時間'] && rec['開始時間'].value) || '';
+      const eTime = (rec['終了時間'] && rec['終了時間'].value) || '';
+      const hours = diffHoursDecimal(sTime, eTime);
+      const timeLine = (sTime && eTime)
+        ? `<div class="staff-time">${sTime} ~ ${eTime}${hours != null ? ` <span class="staff-hours">( ${hours} )</span>` : ''}</div>`
+        : '';
+      return `<div class="staff-display has-data"><div class="staff-name">${name || '未設定'}</div>${timeLine}</div>`;
+    },
   };
+
+  // "10:00"〜"16:30" の差を小数時間で返す（例: 6, 6.5, 6.25）。パース失敗時null
+  function diffHoursDecimal(startTime, endTime) {
+    const parse = (s) => {
+      const m = String(s || '').match(/(\d{1,2}):(\d{2})/);
+      return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+    };
+    const s = parse(startTime), e = parse(endTime);
+    if (s == null || e == null) return null;
+    const h = (e - s) / 60;
+    // 小数2桁に丸め、末尾の .0 / .00 は削除
+    return Math.round(h * 100) / 100;
+  }
 
   App.Render = Render;
 })();

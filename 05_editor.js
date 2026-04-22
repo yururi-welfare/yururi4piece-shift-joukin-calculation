@@ -162,7 +162,12 @@
       if (finished) return;
       finished = true;
       td.classList.remove('editing');
-      td.innerHTML = `<span class="staff-display ${td.dataset.current ? '' : 'is-empty'}">${td.dataset.current || '未設定'}</span>`;
+      // 取消時は保持中のシフトマップから該当セルを再描画して時間表示まで復元
+      if (State.currentShiftMaps) {
+        Render.applyShiftsToStaffCells(root, State.currentShiftMaps);
+      } else {
+        td.innerHTML = `<span class="staff-display ${td.dataset.current ? '' : 'is-empty'}">${td.dataset.current || '未設定'}</span>`;
+      }
     };
 
     sel.addEventListener('change', async () => {
@@ -187,7 +192,6 @@
           State.currentShiftMaps[role] = fresh;
           finished = true;
           td.classList.remove('editing');
-          td.innerHTML = `<span class="staff-display ${newVal ? '' : 'is-empty'}">${newVal || '未設定'}</span>`;
           Render.applyShiftsToStaffCells(root, State.currentShiftMaps);
           setIndicator(root, '✓ 保存しました', 'saved');
         } else {
