@@ -1,0 +1,122 @@
+/* 放デイシフト 表示用CSS */
+
+#shift-root {
+  font-family: "Yu Gothic", "游ゴシック", "Meiryo", sans-serif;
+  color: #333;
+  padding: 16px;
+  display: block;
+  width: 100%;
+  clear: both;
+  box-sizing: border-box;
+  background: #f5f5f5;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* 標準のレコード一覧を隠したい場合はこれを有効化 */
+/*
+.gaia-argoui-app-index-listview,
+.recordlist-gaia {
+  display: none !important;
+}
+*/
+
+/* 週ナビ -------------------------------------------------- */
+.shift-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.shift-nav button {
+  padding: 6px 14px;
+  border: 1px solid #bbb;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.shift-nav button:hover { background: #f5f5f5; }
+.shift-nav .week-label {
+  font-weight: bold;
+  font-size: 15px;
+  margin: 0 8px;
+}
+.shift-loading { color: #888; padding: 20px; }
+
+/* テーブル本体 -------------------------------------------- */
+.shift-table {
+  border-collapse: collapse;
+  background: #fff;
+  table-layout: fixed;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+}
+.shift-table th,
+.shift-table td {
+  border: 1px solid #999;
+  padding: 6px 8px;
+  vertical-align: top;
+  font-size: 12px;
+  height: 56px;
+  white-space: pre-line;
+}
+.shift-table thead th {
+  background: #e8ecf1;
+  text-align: center;
+  font-weight: bold;
+  height: 36px;
+}
+.shift-table thead th.sat { background: #e0ecf6; color: #1a5ea0; }
+.shift-table thead th.sun { background: #f6e0e0; color: #a01a1a; }
+
+.shift-table .row-label {
+  background: #f0f0f0;
+  width: 110px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 12px;
+}
+.shift-table .row-label.vertical {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  width: 32px;
+  padding: 8px 2px;
+  letter-spacing: 3px;
+  background: #e5ecf0;
+}
+
+.shift-table td.cell.sat { background: #f2f7fb; }
+.shift-table td.cell.sun { background: #fbf2f2; }
+
+/* 営業パターン プルダウン */
+.shift-table .pattern-select {
+  width: 100%;
+  border: 1px solid #c8cbd0;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-size: 12px;
+  background: #fff;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.shift-table .pattern-select:hover { border-color: #4a90e2; }
+.shift-table .pattern-select:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, .25);
+}
+.shift-table .pattern-select:disabled {
+  background: #f5f5f5;
+  cursor: wait;
+}
+
+.shift-table tr.group-header td {
+  background: #d9e2ec;
+  font-weight: bold;
+  text-align: center;
+  height: 22px;
+  font-size: 11px;
+  color: #444;
+}
