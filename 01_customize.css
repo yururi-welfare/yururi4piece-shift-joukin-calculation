@@ -1,122 +1,221 @@
 /* 放デイシフト 表示用CSS */
 
 #shift-root {
-  font-family: "Yu Gothic", "游ゴシック", "Meiryo", sans-serif;
-  color: #333;
-  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", "Meiryo", sans-serif;
+  color: #2d3748;
+  padding: 24px;
   display: block;
   width: 100%;
   clear: both;
   box-sizing: border-box;
-  background: #f5f5f5;
+  background: #ffffff;
   margin-bottom: 16px;
   position: relative;
   z-index: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* 標準のレコード一覧を隠したい場合はこれを有効化 */
-/*
+/* 標準のレコード一覧を隠したい場合は有効化
 .gaia-argoui-app-index-listview,
-.recordlist-gaia {
-  display: none !important;
-}
+.recordlist-gaia { display: none !important; }
 */
 
-/* 週ナビ -------------------------------------------------- */
+/* ── 週ナビ ─────────────────────────────────── */
 .shift-nav {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 .shift-nav button {
-  padding: 6px 14px;
-  border: 1px solid #bbb;
-  background: #fff;
-  border-radius: 4px;
+  padding: 10px 18px;
+  border: 1px solid #cbd5e0;
+  background: #ffffff;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
-}
-.shift-nav button:hover { background: #f5f5f5; }
-.shift-nav .week-label {
-  font-weight: bold;
   font-size: 15px;
-  margin: 0 8px;
+  font-weight: 500;
+  color: #2d3748;
+  font-family: inherit;
+  transition: background .12s ease, border-color .12s ease;
 }
-.shift-loading { color: #888; padding: 20px; }
+.shift-nav button:hover {
+  background: #f7fafc;
+  border-color: #a0aec0;
+}
+.shift-nav .btn-today {
+  background: #4c6ef5;
+  color: #ffffff;
+  border-color: #4c6ef5;
+}
+.shift-nav .btn-today:hover { background: #3b5bdb; border-color: #3b5bdb; }
+.shift-nav .week-label {
+  font-weight: 700;
+  font-size: 18px;
+  color: #1a202c;
+  margin: 0 14px;
+}
+.shift-nav .saving-indicator {
+  margin-left: auto;
+  font-size: 14px;
+  color: #4a5568;
+  padding: 6px 14px;
+  background: #edf2f7;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.shift-nav .saving-indicator.visible { opacity: 1; }
+.shift-nav .saving-indicator.saved {
+  color: #276749;
+  background: #c6f6d5;
+}
 
-/* テーブル本体 -------------------------------------------- */
+/* ── テーブル本体 ─────────────────────────────── */
 .shift-table {
   border-collapse: collapse;
-  background: #fff;
+  background: #ffffff;
   table-layout: fixed;
   width: 100%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
 }
 .shift-table th,
 .shift-table td {
-  border: 1px solid #999;
-  padding: 6px 8px;
-  vertical-align: top;
-  font-size: 12px;
-  height: 56px;
+  border: 1px solid #e2e8f0;
+  padding: 12px;
+  vertical-align: middle;
+  font-size: 15px;
+  height: 60px;
   white-space: pre-line;
-}
-.shift-table thead th {
-  background: #e8ecf1;
   text-align: center;
-  font-weight: bold;
-  height: 36px;
+  line-height: 1.4;
 }
-.shift-table thead th.sat { background: #e0ecf6; color: #1a5ea0; }
-.shift-table thead th.sun { background: #f6e0e0; color: #a01a1a; }
 
+/* 曜日ヘッダー */
+.shift-table thead th {
+  background: #f7fafc;
+  font-weight: 600;
+  height: 48px;
+  font-size: 16px;
+  color: #2d3748;
+  border-bottom: 1px solid #cbd5e0;
+}
+.shift-table thead th.sat { color: #2c5282; background: #ebf8ff; }
+.shift-table thead th.sun { color: #9b2c2c; background: #fff5f5; }
+
+/* 行ラベル */
 .shift-table .row-label {
-  background: #f0f0f0;
-  width: 110px;
-  text-align: center;
-  font-weight: bold;
-  font-size: 12px;
+  background: #f7fafc;
+  width: 120px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #2d3748;
 }
 .shift-table .row-label.vertical {
   writing-mode: vertical-rl;
   text-orientation: upright;
-  width: 32px;
-  padding: 8px 2px;
-  letter-spacing: 3px;
-  background: #e5ecf0;
+  width: 40px;
+  padding: 10px 4px;
+  letter-spacing: 5px;
+  background: #edf2f7;
+  color: #4a5568;
+  font-weight: 600;
+  font-size: 14px;
 }
 
-.shift-table td.cell.sat { background: #f2f7fb; }
-.shift-table td.cell.sun { background: #fbf2f2; }
+/* 土日カラム */
+.shift-table td.cell.sat { background: #fafcff; }
+.shift-table td.cell.sun { background: #fffafa; }
 
-/* 営業パターン プルダウン */
+/* グループヘッダー */
+.shift-table tr.group-header td {
+  background: #edf2f7;
+  font-weight: 600;
+  text-align: left;
+  padding-left: 20px;
+  height: 32px;
+  font-size: 12px;
+  color: #4a5568;
+  letter-spacing: .12em;
+}
+
+/* ── 営業時間セル（クリックで編集） ────────────── */
+.shift-table td.eigyou {
+  cursor: pointer;
+  transition: background-color .1s ease;
+  font-weight: 500;
+  color: #2d3748;
+  padding: 0;
+}
+.shift-table td.eigyou:hover { background-color: #f7fafc; }
+.shift-table td.eigyou.sat:hover { background-color: #f0f8ff; }
+.shift-table td.eigyou.sun:hover { background-color: #fff5f5; }
+
+.shift-table td.eigyou .eigyou-display {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 18px 12px;
+  box-sizing: border-box;
+  font-size: 15px;
+  font-weight: 500;
+}
+.shift-table td.eigyou .eigyou-display.is-empty {
+  color: #a0aec0;
+  font-weight: 400;
+}
+
+/* 編集中（プルダウン表示）*/
+.shift-table td.eigyou.editing { padding: 0; }
 .shift-table .pattern-select {
   width: 100%;
-  border: 1px solid #c8cbd0;
-  border-radius: 3px;
-  padding: 4px 6px;
-  font-size: 12px;
-  background: #fff;
+  height: 60px;
+  border: 2px solid #4c6ef5;
+  border-radius: 0;
+  padding: 0 32px 0 12px;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 500;
+  color: #2d3748;
+  background: #ffffff;
   cursor: pointer;
   box-sizing: border-box;
-}
-.shift-table .pattern-select:hover { border-color: #4a90e2; }
-.shift-table .pattern-select:focus {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none' stroke='%234c6ef5' stroke-width='2'%3E%3Cpath d='M3 5l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  text-align: center;
   outline: none;
-  border-color: #4a90e2;
-  box-shadow: 0 0 0 2px rgba(74, 144, 226, .25);
 }
-.shift-table .pattern-select:disabled {
-  background: #f5f5f5;
+.shift-table .pattern-select.is-saving {
+  background-color: #fffaf0;
+  border-color: #ed8936;
   cursor: wait;
 }
+.shift-table .pattern-select option {
+  color: #2d3748;
+  font-size: 15px;
+}
 
-.shift-table tr.group-header td {
-  background: #d9e2ec;
-  font-weight: bold;
-  text-align: center;
-  height: 22px;
-  font-size: 11px;
-  color: #444;
+/* サービス提供時間（計算値）*/
+.shift-table td.derived {
+  color: #4a5568;
+  font-size: 15px;
+  font-weight: 500;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  background: #fdfdfd;
+}
+
+/* ローディング */
+.shift-loading {
+  display: inline-block;
+  color: #718096;
+  padding: 14px 0;
+  font-size: 15px;
 }

@@ -145,29 +145,29 @@
       `<th class="${cellClass(d)}">${fmtMD(d)} (${WEEKDAYS[d.getDay()]})</th>`
     ).join('');
 
-    // 営業時間：プルダウン（選択でレコード作成/更新）
+    // 営業時間：プレーンなセル（クリックで編集モード）
     const rowEigyou = days.map((d) => {
       const dateStr = fmtDate(d);
       const rec = dayMap[dateStr];
       const current = (rec && rec['営業パターン'] && rec['営業パターン'].value) || '';
       const recordId = (rec && rec['$id'] && rec['$id'].value) || '';
-      const options = ['', ...Object.keys(PATTERNS)]
-        .map((opt) =>
-          `<option value="${opt}" ${opt === current ? 'selected' : ''}>${opt || '（未設定）'}</option>`
-        ).join('');
-      return `<td class="cell ${cellClass(d)}">
-        <select class="pattern-select" data-date="${dateStr}" data-record-id="${recordId}">
-          ${options}
-        </select>
+      const text = current || '未設定';
+      const emptyCls = current ? '' : 'is-empty';
+      return `<td class="cell eigyou ${cellClass(d)}"
+          data-eigyou-for="${dateStr}"
+          data-record-id="${recordId}"
+          data-current="${current}">
+        <span class="eigyou-display ${emptyCls}">${text}</span>
       </td>`;
     }).join('');
 
     // サービス提供時間：表示のみ（営業パターンから導出）
     const rowService = days.map((d) => {
-      const rec = dayMap[fmtDate(d)];
+      const dateStr = fmtDate(d);
+      const rec = dayMap[dateStr];
       const p = getPatternValues(rec);
       const val = p ? p.サービス : '';
-      return `<td class="cell ${cellClass(d)}">${val}</td>`;
+      return `<td class="cell derived ${cellClass(d)}" data-service-for="${dateStr}">${val}</td>`;
     }).join('');
 
     const empty = () => days.map((d) => `<td class="cell ${cellClass(d)}"></td>`).join('');
@@ -204,7 +204,23 @@
         <span class="week-label">${startDate.getFullYear()}年 ${fmtMD(startDate)} 〜 ${fmtMD(end)}</span>
         <button class="btn-next">次の週 ▶</button>
         <button class="btn-today">今週</button>
+        <span class="saving-indicator" data-role="saving"></span>
       </div>`;
+  }
+
+  // ── 保存インジケータ ───────────────────────────────
+  let indicatorTimer = null;
+  function setIndicator(root, text, state) {
+    const el = root.querySelector('[data-role="saving"]');
+    if (!el) return;
+    clearTimeout(indicatorTimer);
+    el.textContent = text;
+    el.className = 'saving-indicator visible' + (state ? ' ' + state : '');
+    if (state === 'saved') {
+      indicatorTimer = setTimeout(() => {
+        el.className = 'saving-indicator';
+      }, 1500);
+    }
   }
 
   // ── ルート要素を取得（なければ自動生成）──────────────
@@ -235,37 +251,111 @@
 
   // ── 描画 ─────────────────────────────────────────
   let currentWeekStart = startOfWeek(new Date());
+  let currentDayMap = {};
 
   async function render(root) {
     log('描画開始', { week: fmtDate(currentWeekStart) });
-    // 先に表を必ず描画（レコードが0件でも見える）
     root.innerHTML = buildHeader(currentWeekStart) + buildTable(currentWeekStart, {});
-
-    // データ取得 → 該当行だけ更新（時刻行のみ再構築でもOKだが簡易に全体再描画）
-    const dayMap = await fetchDayMasters(currentWeekStart);
-    root.innerHTML = buildHeader(currentWeekStart) + buildTable(currentWeekStart, dayMap);
-
     bindNav(root);
     bindPatternSelects(root);
+
+    const dayMap = await fetchDayMasters(currentWeekStart);
+    currentDayMap = dayMap;
+    applyDayMapToCells(root, dayMap);
     log('描画完了');
   }
 
+  // dayMapの内容を「既存DOMのセル」に反映（再描画せずに更新）
+  function applyDayMapToCells(root, dayMap) {
+    root.querySelectorAll('td.eigyou').forEach((td) => {
+      // 編集中は触らない
+      if (td.classList.contains('editing')) return;
+      const dateStr = td.dataset.eigyouFor;
+      const rec = dayMap[dateStr];
+      const current = (rec && rec['営業パターン'] && rec['営業パターン'].value) || '';
+      const recordId = (rec && rec['$id'] && rec['$id'].value) || '';
+      td.dataset.current = current;
+      td.dataset.recordId = recordId;
+      const display = td.querySelector('.eigyou-display');
+      if (display) {
+        display.textContent = current || '未設定';
+        display.classList.toggle('is-empty', !current);
+      }
+    });
+    root.querySelectorAll('[data-service-for]').forEach((td) => {
+      const dateStr = td.dataset.serviceFor;
+      const rec = dayMap[dateStr];
+      const p = getPatternValues(rec);
+      td.textContent = p ? p.サービス : '';
+    });
+  }
+
+  // 営業時間セルをクリックしたら編集モードに入る
   function bindPatternSelects(root) {
-    root.querySelectorAll('.pattern-select').forEach((sel) => {
-      sel.addEventListener('change', async (e) => {
-        const target = e.target;
-        const newPattern = target.value;
-        const dateStr = target.dataset.date;
-        const recordId = target.dataset.recordId || '';
-        log('営業パターン変更', { date: dateStr, pattern: newPattern, recordId });
-        target.disabled = true;
-        try {
-          await saveDayPattern(dateStr, newPattern, recordId);
-          await render(root); // 再取得＋再描画（サービス提供時間も連動）
-        } catch (_) {
-          target.disabled = false;
-        }
+    root.querySelectorAll('td.eigyou').forEach((td) => {
+      td.addEventListener('click', () => {
+        if (td.classList.contains('editing')) return;
+        enterEditMode(td, root);
       });
+    });
+  }
+
+  function enterEditMode(td, root) {
+    const current = td.dataset.current || '';
+    const dateStr = td.dataset.eigyouFor;
+    const recordId = td.dataset.recordId || '';
+
+    const options = ['', ...Object.keys(PATTERNS)]
+      .map((opt) =>
+        `<option value="${opt}" ${opt === current ? 'selected' : ''}>${opt || '未設定'}</option>`
+      ).join('');
+
+    td.classList.add('editing');
+    td.innerHTML = `<select class="pattern-select">${options}</select>`;
+    const sel = td.querySelector('select');
+    sel.focus();
+    try { sel.showPicker && sel.showPicker(); } catch (_) {}
+
+    let finished = false;
+    const exit = () => {
+      if (finished) return;
+      finished = true;
+      td.classList.remove('editing');
+      // 表示モードに戻す
+      td.innerHTML = `<span class="eigyou-display ${td.dataset.current ? '' : 'is-empty'}">${td.dataset.current || '未設定'}</span>`;
+    };
+
+    sel.addEventListener('change', async () => {
+      const newPattern = sel.value;
+      if (newPattern === current) { exit(); return; }
+
+      log('営業パターン変更', { date: dateStr, pattern: newPattern, recordId });
+      sel.classList.add('is-saving');
+      sel.disabled = true;
+      setIndicator(root, '保存中...', 'saving');
+
+      try {
+        await saveDayPattern(dateStr, newPattern, recordId);
+        const fresh = await fetchDayMasters(currentWeekStart);
+        currentDayMap = fresh;
+        // td自身を含めて全セルを更新（data-currentも更新される）
+        applyDayMapToCells(root, fresh);
+        finished = true;  // applyDayMapToCellsで中身が書き換わるためexit不要
+        td.classList.remove('editing');
+        setIndicator(root, '✓ 保存しました', 'saved');
+      } catch (_) {
+        setIndicator(root, '保存失敗', 'saving');
+        exit();
+      }
+    });
+
+    sel.addEventListener('blur', () => {
+      // change発火後にblurが来るケースもあるため遅延
+      setTimeout(exit, 150);
+    });
+
+    sel.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') exit();
     });
   }
 
