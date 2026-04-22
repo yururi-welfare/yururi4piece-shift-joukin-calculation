@@ -63,10 +63,12 @@
       return Api._postShiftRecord(record, { via: 'createJihatsukanShift', name, number });
     },
 
-    // 指定週(7日)分の日付マスタを取得し YYYY-MM-DD キーの map で返す
-    async fetchDayMasters(startDate) {
-      const end = new Date(startDate);
-      end.setDate(end.getDate() + 6);
+    // 指定期間分の日付マスタを取得し YYYY-MM-DD キーの map で返す
+    // endDate 省略時は startDate から7日間
+    async fetchDayMasters(startDate, endDate) {
+      const end = endDate
+        ? new Date(endDate)
+        : (() => { const d = new Date(startDate); d.setDate(d.getDate() + 6); return d; })();
       const query =
         `営業日 >= "${Utils.fmtDate(startDate)}" and 営業日 <= "${Utils.fmtDate(end)}" order by 営業日 asc`;
       log('日付マスタ取得開始', { app: Config.DAY_MASTER_APP_ID, query });
@@ -142,6 +144,16 @@
         alert('保存に失敗しました: ' + (e.message || JSON.stringify(e)));
         throw e;
       }
+    },
+
+    // 資格で絞ったスタッフリストを返す（ダイアログの従業員ドロップダウン用）
+    // 現状は '児発管' のみ特化。他の資格は fetchAllStaff にフォールバック
+    async fetchStaffByQualification(qualification) {
+      if (qualification === '児発管') {
+        if (jihatsukanCache === null) await Api.fetchJihatsukanStaff();
+        return Array.isArray(jihatsukanCache) ? jihatsukanCache : [];
+      }
+      return Api.fetchAllStaff();
     },
 
     // 全スタッフ取得（就業先=放デイゆるりフォーピースのみ絞込）

@@ -152,6 +152,146 @@
       .catch((e) => { err('events取得失敗', e); failure(e); });
   }
 
+  // 営業時間外を示すグレー背景＋営業開始/終了ラベル
+  // 週・日ビューのみ描画（月ビューでは空を返す）
+  function offHoursEventSource(fetchInfo, success, failure) {
+    const viewType = fetchInfo.view && fetchInfo.view.type;
+    if (viewType === 'dayGridMonth') { success([]); return; }
+
+    const start = fetchInfo.start;
+    const end = new Date(fetchInfo.end);
+    end.setDate(end.getDate() - 1);
+    Api.fetchDayMasters(start, end)
+      .then((dayMap) => {
+        const bg     = buildOffHoursBackground(start, end, dayMap);
+        const labels = buildOpenCloseLabels(start, end, dayMap);
+        success([...bg, ...labels]);
+      })
+      .catch((e) => { err('日付マスタ取得失敗(背景)', e); failure(e); });
+  }
+
+  // "HH:MM" ↔ 分 の相互変換
+  function toMin(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+  function toHHMM(m) {
+    const h = Math.floor(m / 60), mm = m % 60;
+    return String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+  }
+
+  // 営業開始/終了ラベルの "マーカーイベント" を生成
+  // - 開始ラベル: 営業開始の1時間前から30分幅 (slotMinを下回る場合はクランプ)
+  // - 終了ラベル: 営業終了の1時間後で30分幅 (slotMaxを超える場合はクランプ)
+  function buildOpenCloseLabels(startDate, endDate, dayMap) {
+    const events = [];
+    const slotMinM = toMin(Config.CALENDAR.SLOT_MIN_TIME.slice(0, 5));
+    const slotMaxM = toMin(Config.CALENDAR.SLOT_MAX_TIME.slice(0, 5));
+    const LABEL_MIN_DURATION = 15;
+    const LABEL_DURATION     = 30;
+
+    const cursor = new Date(startDate); cursor.setHours(0, 0, 0, 0);
+    const endDay = new Date(endDate);   endDay.setHours(0, 0, 0, 0);
+
+    while (cursor <= endDay) {
+      const dateStr = Utils.fmtDate(cursor);
+      const rec = dayMap[dateStr];
+      const patternStr = rec && rec['営業パターン'] && rec['営業パターン'].value;
+      const parsed = Utils.parseHourRange(patternStr);
+
+      if (parsed) {
+        const openM  = toMin(parsed.start);
+        const closeM = toMin(parsed.end);
+
+        // 開始ラベル: open - 60 min から 30 min 幅。slotMin 以下や open を越えないようクランプ
+        if (openM > slotMinM) {
+          let s = Math.max(slotMinM, openM - 60);
+          let e = Math.min(s + LABEL_DURATION, openM);
+          if (e - s >= LABEL_MIN_DURATION) {
+            events.push(makeLabelEvent(dateStr, s, e, `${parsed.start} 営業開始`, 'open'));
+          }
+        }
+        // 終了ラベル: close + 60 min から 30 min 幅。slotMax を越えない/close を下回らないようクランプ
+        if (closeM < slotMaxM) {
+          let sDesired = closeM + 60;
+          let eDesired = sDesired + LABEL_DURATION;
+          let e = Math.min(eDesired, slotMaxM);
+          let s = Math.max(closeM, e - LABEL_DURATION);
+          if (e - s >= LABEL_MIN_DURATION) {
+            events.push(makeLabelEvent(dateStr, s, e, `${parsed.end} 営業終了`, 'close'));
+          }
+        }
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return events;
+  }
+
+  function makeLabelEvent(dateStr, startMin, endMin, title, type) {
+    return {
+      start: `${dateStr}T${toHHMM(startMin)}:00`,
+      end:   `${dateStr}T${toHHMM(endMin)}:00`,
+      title: title,
+      display: 'block',
+      editable: false,
+      startEditable: false,
+      durationEditable: false,
+      classNames: ['shift-marker', `shift-marker-${type}`],
+      extendedProps: { isMarker: true, markerType: type },
+    };
+  }
+
+  // 営業時間外スロットの背景イベント配列を生成
+  function buildOffHoursBackground(startDate, endDate, dayMap) {
+    const events = [];
+    const slotMin = Config.CALENDAR.SLOT_MIN_TIME.slice(0, 5); // "08:00"
+    const slotMax = Config.CALENDAR.SLOT_MAX_TIME.slice(0, 5); // "19:00"
+    const BG_COLOR = '#e2e8f0'; // 控えめなグレー
+
+    const cursor = new Date(startDate);
+    cursor.setHours(0, 0, 0, 0);
+    const endDay = new Date(endDate);
+    endDay.setHours(0, 0, 0, 0);
+
+    while (cursor <= endDay) {
+      const dateStr = Utils.fmtDate(cursor);
+      const rec = dayMap[dateStr];
+      const patternStr = rec && rec['営業パターン'] && rec['営業パターン'].value;
+      const parsed = Utils.parseHourRange(patternStr);
+
+      if (!parsed) {
+        // 営業パターン未設定 → 全スロットをグレー
+        events.push({
+          start: `${dateStr}T${slotMin}:00`,
+          end:   `${dateStr}T${slotMax}:00`,
+          display: 'background',
+          backgroundColor: BG_COLOR,
+          groupId: 'offhours',
+        });
+      } else {
+        // slotMin 〜 営業開始
+        if (parsed.start > slotMin) {
+          events.push({
+            start: `${dateStr}T${slotMin}:00`,
+            end:   `${dateStr}T${parsed.start}:00`,
+            display: 'background',
+            backgroundColor: BG_COLOR,
+            groupId: 'offhours',
+          });
+        }
+        // 営業終了 〜 slotMax
+        if (parsed.end < slotMax) {
+          events.push({
+            start: `${dateStr}T${parsed.end}:00`,
+            end:   `${dateStr}T${slotMax}:00`,
+            display: 'background',
+            backgroundColor: BG_COLOR,
+            groupId: 'offhours',
+          });
+        }
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return events;
+  }
+
   const Calendar = {
     // タブ初回表示時にFullCalendarを生成
     // initialDate: 初期表示日（チェック表の週開始と同期するため）
@@ -189,7 +329,10 @@
           hour: 'numeric', minute: '2-digit', omitZeroMinute: true,
           meridiem: false, hour12: false,
         },
-        events: eventSource,
+        eventSources: [
+          { id: 'shifts',   events: eventSource },
+          { id: 'offhours', events: offHoursEventSource },
+        ],
         datesSet: () => {
           updateDateTitle(container);
           // 外部からgotoDateで動かしたときは自己通知を抑止（ループ防止）
@@ -228,12 +371,19 @@
           fc.unselect();
         },
         eventClick: (info) => {
+          if (info.event.extendedProps.isMarker) return;
           App.ShiftDialog.showEdit(info.event.extendedProps.record, () => {
             fc.refetchEvents();
           });
         },
-        eventDrop:   (info) => handleEventTimeChange(info, 'ドラッグ移動'),
-        eventResize: (info) => handleEventTimeChange(info, 'リサイズ'),
+        eventDrop: (info) => {
+          if (info.event.extendedProps.isMarker) { info.revert(); return; }
+          handleEventTimeChange(info, 'ドラッグ移動');
+        },
+        eventResize: (info) => {
+          if (info.event.extendedProps.isMarker) { info.revert(); return; }
+          handleEventTimeChange(info, 'リサイズ');
+        },
       });
 
       fc.render();
@@ -262,6 +412,13 @@
 
     // 外部から差し替え可能なフック： 日付変更時に main が受け取る
     onDateChange: null,
+
+    // 営業パターンが別タブで更新されたときに、背景(営業時間外)のみ再取得
+    refreshBackground() {
+      if (!fc) return;
+      const src = fc.getEventSourceById('offhours');
+      if (src) src.refetch();
+    },
 
     bindToolbar(container) {
       const q = (sel) => container.querySelector(sel);

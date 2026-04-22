@@ -109,6 +109,11 @@
         td.innerHTML = `<span class="eigyou-display ${newPattern ? '' : 'is-empty'}">${newPattern || '未設定'}</span>`;
         Render.applyDayMapToCells(root, fresh);
         setIndicator(root, '✓ 保存しました', 'saved');
+
+        // カレンダータブの営業時間外背景を再計算（カレンダーが初期化済みの場合のみ）
+        if (App.Calendar && typeof App.Calendar.refreshBackground === 'function') {
+          App.Calendar.refreshBackground();
+        }
       } catch (_) {
         setIndicator(root, '保存失敗', 'saving');
         exit();
@@ -124,9 +129,56 @@
     root.querySelectorAll('td.staff-cell').forEach((td) => {
       td.addEventListener('click', () => {
         if (td.classList.contains('editing')) return;
-        enterStaffEditMode(td, root);
+        const role = td.dataset.staffRole;
+        const qualification = Config.ROLE_QUALIFICATION && Config.ROLE_QUALIFICATION[role];
+        // 資格マッピングがある役割は カレンダーと同じモーダルを使用
+        if (qualification) {
+          openShiftModalForCell(td, root, role, qualification);
+        } else {
+          enterStaffEditMode(td, root);
+        }
       });
     });
+  }
+
+  // "YYYY-MM-DD" + "HH:MM" → Date
+  function dateTimeOf(dateStr, timeStr) {
+    const [y, m, d]  = dateStr.split('-').map(Number);
+    const [hh, mm]   = timeStr.split(':').map(Number);
+    return new Date(y, m - 1, d, hh, mm, 0);
+  }
+
+  // 指定role・qualification のマップを再取得してセル反映
+  async function refreshStaffMap(role, qualification, root) {
+    const endDate = new Date(State.currentWeekStart);
+    endDate.setDate(endDate.getDate() + 6);
+    const fresh = await Api.fetchShiftsByQualification(State.currentWeekStart, endDate, qualification);
+    State.currentShiftMaps = State.currentShiftMaps || {};
+    State.currentShiftMaps[role] = fresh;
+    Render.applyShiftsToStaffCells(root, State.currentShiftMaps);
+  }
+
+  // セルクリック時：既存シフトがあれば詳細モーダル、無ければ登録モーダル
+  function openShiftModalForCell(td, root, role, qualification) {
+    const dateStr  = td.dataset.staffFor;
+    const recordId = td.dataset.recordId || '';
+    const shift = State.currentShiftMaps
+      && State.currentShiftMaps[role]
+      && State.currentShiftMaps[role][dateStr];
+
+    const onChanged = () => refreshStaffMap(role, qualification, root);
+
+    if (recordId && shift) {
+      App.ShiftDialog.showEdit(shift, onChanged);
+      return;
+    }
+    const { start: sTime, end: eTime } = defaultTimesForDate(dateStr);
+    App.ShiftDialog.showCreate(
+      dateTimeOf(dateStr, sTime),
+      dateTimeOf(dateStr, eTime),
+      onChanged,
+      { qualification }
+    );
   }
 
   // role ごとに呼び出すfetch関数を変える（拡張時はここにマッピング追加）

@@ -37,8 +37,11 @@
     return v || '';
   }
 
-  async function buildStaffOptions(currentName) {
-    const staff = await Api.fetchAllStaff();
+  // qualificationが指定されていれば、その資格を持つスタッフのみに絞る
+  async function buildStaffOptions(currentName, qualification) {
+    const staff = qualification
+      ? await Api.fetchStaffByQualification(qualification)
+      : await Api.fetchAllStaff();
     const opts = ['<option value="">— 選択 —</option>']
       .concat(staff.map((s) => {
         const sel = s.氏名 === currentName ? 'selected' : '';
@@ -65,20 +68,25 @@
 
   const ShiftDialog = {
     // 新規作成
-    async showCreate(defaultStart, defaultEnd, onSaved) {
+    // options.qualification: 指定するとその資格のスタッフのみドロップダウンに表示
+    async showCreate(defaultStart, defaultEnd, onSaved, options = {}) {
       const startDateVal = toDateStr(defaultStart);
       const startTimeVal = toTimeStr(defaultStart);
       const endDateVal   = toDateStr(defaultEnd);
       const endTimeVal   = toTimeStr(defaultEnd);
 
-      const staffOptions = await buildStaffOptions('');
+      const staffOptions = await buildStaffOptions('', options.qualification);
+      const titleSuffix = options.qualification ? `（${options.qualification}）` : '';
+      const helperMsg = options.qualification
+        ? `※ ${options.qualification}資格のスタッフのみ表示されます`
+        : '※ 資格は従業員マスタから自動取得されます';
 
       const html = `
-        <h3>シフトを登録</h3>
+        <h3>シフトを登録${titleSuffix}</h3>
         <div class="field">
           <label>従業員</label>
           <select class="f-staff">${staffOptions}</select>
-          <small style="color:#718096;font-size:12px;margin-top:2px;">※ 資格は従業員マスタから自動取得されます</small>
+          <small style="color:#718096;font-size:12px;margin-top:2px;">${helperMsg}</small>
         </div>
         <div class="row2">
           <div class="field">

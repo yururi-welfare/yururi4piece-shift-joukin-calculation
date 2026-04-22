@@ -376,6 +376,31 @@
 .fc .fc-timegrid-slot { height: 12px !important; }
 .fc .fc-timegrid-slot-label-cushion { font-size: 11px; }
 
+/* 営業開始/終了マーカー（背景・枠あり、文字は黒、非インタラクティブ） */
+.fc .fc-event.shift-marker {
+  background: #e6edf5 !important;
+  border: 1px dashed #718096 !important;
+  color: #1a202c !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+  padding: 2px 4px !important;
+  cursor: default !important;
+  pointer-events: none !important;
+  opacity: 0.95;
+}
+.fc .fc-event.shift-marker .fc-event-time { display: none !important; }
+.fc .fc-event.shift-marker .fc-event-title {
+  display: block !important;
+  color: #1a202c !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.fc .fc-event.shift-marker-open  { border-top: 2px solid #4299e1 !important; }
+.fc .fc-event.shift-marker-close { border-bottom: 2px solid #4299e1 !important; }
+
 /* 曜日・祝日の色付け（常勤チェック表と同系統） */
 /* ヘッダー（曜日表示行） */
 .fc .fc-col-header-cell.fc-day-sat {
