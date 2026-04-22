@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>放デイ シフト入力プロトタイプ</title>
+<style>
+  body {
+    font-family: "Yu Gothic", "游ゴシック", "Meiryo", sans-serif;
+    background: #f5f5f5;
+    margin: 0;
+    padding: 24px;
+    color: #333;
+  }
+  h1 {
+    font-size: 18px;
+    margin: 0 0 8px;
+  }
+  .week-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .week-nav button {
+    padding: 6px 14px;
+    border: 1px solid #bbb;
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .week-nav .label {
+    font-weight: bold;
+    font-size: 15px;
+  }
+  table {
+    border-collapse: collapse;
+    background: #fff;
+    table-layout: fixed;
+    width: 100%;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  th, td {
+    border: 1px solid #999;
+    padding: 4px 6px;
+    vertical-align: top;
+    font-size: 12px;
+    height: 56px;
+  }
+  thead th {
+    background: #e8ecf1;
+    text-align: center;
+    font-weight: bold;
+    height: 36px;
+  }
+  thead th.sat { background: #e0ecf6; color: #1a5ea0; }
+  thead th.sun { background: #f6e0e0; color: #a01a1a; }
+  .row-label {
+    background: #f0f0f0;
+    width: 110px;
+    text-align: center;
+    font-weight: bold;
+    white-space: pre-line;
+    font-size: 12px;
+  }
+  .row-label.vertical {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    width: 32px;
+    padding: 8px 2px;
+    letter-spacing: 3px;
+    background: #e5ecf0;
+    font-size: 12px;
+  }
+  td.cell input,
+  td.cell textarea {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    font-family: inherit;
+    box-sizing: border-box;
+    padding: 2px;
+    resize: none;
+  }
+  td.cell input:focus,
+  td.cell textarea:focus {
+    outline: 1px solid #4a90e2;
+    background: #fffde7;
+  }
+  td.cell { position: relative; }
+  td.cell.sat { background: #f2f7fb; }
+  td.cell.sun { background: #fbf2f2; }
+
+  /* 行グルーピング */
+  tr.group-header td {
+    background: #d9e2ec;
+    font-weight: bold;
+    text-align: center;
+    height: 22px;
+    font-size: 11px;
+    color: #444;
+  }
+  .two-line { display: flex; flex-direction: column; gap: 2px; }
+  .small { font-size: 10px; color: #888; }
+  .legend { margin-top: 12px; font-size: 11px; color: #666; }
+  .actions { margin-top: 16px; }
+  .actions button {
+    padding: 8px 18px;
+    border: none;
+    background: #4a90e2;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .actions button.secondary {
+    background: #fff;
+    color: #4a90e2;
+    border: 1px solid #4a90e2;
+    margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<h1>放課後等デイサービス 週間シフト入力</h1>
+
+<div class="week-nav">
+  <button>◀ 前の週</button>
+  <span class="label">2026年5月1週（5/1 ～ 5/2）</span>
+  <button>次の週 ▶</button>
+  <span class="small">※プロトタイプ（ダミーデータ）</span>
+</div>
+
+<table>
+  <colgroup>
+    <col style="width:32px">
+    <col style="width:110px">
+    <col><col><col><col><col><col><col>
+  </colgroup>
+  <thead>
+    <tr>
+      <th colspan="2"></th>
+      <th>5/1 (月)</th>
+      <th>5/2 (火)</th>
+      <th>5/3 (水)</th>
+      <th>5/4 (木)</th>
+      <th class="sat">5/5 (金)</th>
+      <th class="sat">5/6 (土)</th>
+      <th>5/7 (日)</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- ── 日の情報 ── -->
+    <tr class="group-header"><td colspan="9">日の情報</td></tr>
+
+    <tr>
+      <td class="row-label" colspan="2">営業時間</td>
+      <td class="cell"><input value="10:00〜18:00"></td>
+      <td class="cell"><input value="10:00〜18:00"></td>
+      <td class="cell"><input value="10:00〜18:00"></td>
+      <td class="cell"><input value="10:00〜18:00"></td>
+      <td class="cell sat"><input value="9:30〜16:30"></td>
+      <td class="cell sat"><input value="9:30〜16:30"></td>
+      <td class="cell"><input value="休業"></td>
+    </tr>
+
+    <!-- ── 配置 ── -->
+    <tr class="group-header"><td colspan="9">スタッフ配置</td></tr>
+
+    <tr>
+      <td class="row-label" colspan="2">管理者兼
+児発管</td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="高橋" placeholder="氏名">
+          <input value="10:00〜18:00" placeholder="勤務時間">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="高橋">
+          <input value="10:00〜18:00">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="高橋">
+          <input value="10:00〜18:00">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="高橋">
+          <input value="10:00〜18:00">
+        </div>
+      </td>
+      <td class="cell sat">
+        <div class="two-line">
+          <input value="高橋">
+          <input value="9:30〜16:30">
+        </div>
+      </td>
+      <td class="cell sat">
+        <div class="two-line">
+          <input value="高橋">
+          <input value="9:30〜16:30">
+        </div>
+      </td>
+      <td class="cell"><input value=""></td>
+    </tr>
+
+    <tr>
+      <td class="row-label" colspan="2">常勤専従</td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="鈴木">
+          <input value="10:00〜19:00">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="鈴木">
+          <input value="10:00〜19:00">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="山田">
+          <input value="10:00〜19:00">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="山田">
+          <input value="10:00〜19:00">
+        </div>
+      </td>
+      <td class="cell sat">
+        <div class="two-line">
+          <input value="鈴木">
+          <input value="9:30〜16:30">
+        </div>
+      </td>
+      <td class="cell sat">
+        <div class="two-line">
+          <input value="山田">
+          <input value="9:30〜16:30">
+        </div>
+      </td>
+      <td class="cell"><input value=""></td>
+    </tr>
+
+    <tr>
+      <td class="row-label vertical" rowspan="3">常勤換算1人</td>
+      <td class="row-label">1人目</td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="山田" placeholder="氏名">
+          <input value="11:00〜20:00" placeholder="勤務時間">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="山田">
+          <input value="11:00〜20:00">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="鈴木">
+          <input value="11:00〜20:00">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="鈴木">
+          <input value="11:00〜20:00">
+        </div>
+      </td>
+      <td class="cell sat">
+        <div class="two-line">
+          <input value="山田">
+          <input value="9:30〜16:30">
+        </div>
+      </td>
+      <td class="cell sat">
+        <div class="two-line">
+          <input value="鈴木">
+          <input value="9:30〜16:30">
+        </div>
+      </td>
+      <td class="cell"><input value=""></td>
+    </tr>
+
+    <tr>
+      <td class="row-label">2人目</td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="佐藤">
+          <input value="13:00〜18:00">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="佐藤">
+          <input value="13:00〜18:00">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="田中">
+          <input value="13:00〜18:00">
+        </div>
+      </td>
+      <td class="cell">
+        <div class="two-line">
+          <input value="田中">
+          <input value="13:00〜18:00">
+        </div>
+      </td>
+      <td class="cell sat">
+        <div class="two-line">
+          <input value="佐藤">
+          <input value="10:00〜16:30">
+        </div>
+      </td>
+      <td class="cell sat">
+        <div class="two-line">
+          <input value="田中">
+          <input value="10:00〜16:30">
+        </div>
+      </td>
+      <td class="cell"><input value=""></td>
+    </tr>
+
+    <tr>
+      <td class="row-label"></td>
+      <td class="cell"><input value="鈴木・田中"></td>
+      <td class="cell"><input value="鈴木・田中"></td>
+      <td class="cell"><input value="山田・佐藤"></td>
+      <td class="cell"><input value="山田・佐藤"></td>
+      <td class="cell sat"><input value="鈴木・田中"></td>
+      <td class="cell sat"><input value="山田・佐藤"></td>
+      <td class="cell"><input value="全員"></td>
+    </tr>
+
+    <tr>
+      <td class="row-label" colspan="2">休憩</td>
+      <td class="cell"><input value="13:00〜14:00"></td>
+      <td class="cell"><input value="13:00〜14:00"></td>
+      <td class="cell"><input value="13:00〜14:00"></td>
+      <td class="cell"><input value="13:00〜14:00"></td>
+      <td class="cell sat"><input value="12:30〜13:30"></td>
+      <td class="cell sat"><input value="12:30〜13:30"></td>
+      <td class="cell"><input value=""></td>
+    </tr>
+
+    <!-- ── 加算 ── -->
+    <tr class="group-header"><td colspan="9">加算・備考</td></tr>
+
+    <tr>
+      <td class="row-label" colspan="2">体制加算</td>
+      <td class="cell"><input value="有"></td>
+      <td class="cell"><input value="有"></td>
+      <td class="cell"><input value="有"></td>
+      <td class="cell"><input value="有"></td>
+      <td class="cell sat"><input value="有"></td>
+      <td class="cell sat"><input value="有"></td>
+      <td class="cell"><input value="—"></td>
+    </tr>
+
+    <tr>
+      <td class="row-label" colspan="2">備考</td>
+      <td class="cell"><textarea rows="2"></textarea></td>
+      <td class="cell"><textarea rows="2"></textarea></td>
+      <td class="cell"><textarea rows="2">研修あり</textarea></td>
+      <td class="cell"><textarea rows="2"></textarea></td>
+      <td class="cell sat"><textarea rows="2"></textarea></td>
+      <td class="cell sat"><textarea rows="2">イベント参加</textarea></td>
+      <td class="cell"><textarea rows="2"></textarea></td>
+    </tr>
+
+  </tbody>
+</table>
+
+<div class="legend">
+  ※ 土曜は水色・背景でハイライト／日曜は休業想定
+  ／ 各セルはクリックで編集可（プロト）
+</div>
+
+<div class="actions">
+  <button>保存</button>
+  <button class="secondary">スタッフ別ビューに切替</button>
+</div>
+
+</body>
+</html>
