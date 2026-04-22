@@ -106,6 +106,12 @@
 }
 .shift-table thead th.sat { color: #2c5282; background: #ebf8ff; }
 .shift-table thead th.sun { color: #9b2c2c; background: #fff5f5; }
+.shift-table thead th .holiday-name {
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 2px;
+  opacity: 0.85;
+}
 
 /* 行ラベル */
 .shift-table .row-label {
@@ -156,10 +162,13 @@
 .shift-table td.eigyou.sun:hover { background-color: #fff5f5; }
 
 .shift-table td.eigyou .eigyou-display {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
-  padding: 18px 12px;
+  min-height: 60px;
+  padding: 8px 12px;
   box-sizing: border-box;
   font-size: 15px;
   font-weight: 500;

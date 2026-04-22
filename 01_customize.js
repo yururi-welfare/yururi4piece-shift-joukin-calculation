@@ -30,8 +30,7 @@
   // ── ユーティリティ ────────────────────────────────
   function startOfWeek(date) {
     const d = new Date(date);
-    const day = d.getDay();
-    d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+    d.setDate(d.getDate() - d.getDay()); // 日曜始まり
     d.setHours(0, 0, 0, 0);
     return d;
   }
@@ -39,7 +38,16 @@
     String(d.getMonth() + 1).padStart(2, '0') + '-' +
     String(d.getDate()).padStart(2, '0');
   const fmtMD = (d) => (d.getMonth() + 1) + '/' + d.getDate();
-  const cellClass = (d) => d.getDay() === 6 ? 'sat' : d.getDay() === 0 ? 'sun' : '';
+  const isHoliday = (d) => {
+    try {
+      return (window.JapaneseHolidays && window.JapaneseHolidays.isHoliday(d)) || null;
+    } catch (_) { return null; }
+  };
+  // 祝日は日曜と同じ赤色スタイルにする（'sun'クラス再利用）
+  const cellClass = (d) => {
+    if (isHoliday(d)) return 'sun';
+    return d.getDay() === 6 ? 'sat' : d.getDay() === 0 ? 'sun' : '';
+  };
 
   function getPatternValues(record) {
     const p = record && record['営業パターン'] && record['営業パターン'].value;
@@ -141,9 +149,11 @@
       d.setDate(d.getDate() + i);
       days.push(d);
     }
-    const dateHeader = days.map((d) =>
-      `<th class="${cellClass(d)}">${fmtMD(d)} (${WEEKDAYS[d.getDay()]})</th>`
-    ).join('');
+    const dateHeader = days.map((d) => {
+      const holiday = isHoliday(d);
+      const sub = holiday ? `<div class="holiday-name">${holiday}</div>` : '';
+      return `<th class="${cellClass(d)}">${fmtMD(d)} (${WEEKDAYS[d.getDay()]})${sub}</th>`;
+    }).join('');
 
     // 営業時間：プレーンなセル（クリックで編集モード）
     const rowEigyou = days.map((d) => {
@@ -153,12 +163,7 @@
       const recordId = (rec && rec['$id'] && rec['$id'].value) || '';
       const text = current || '未設定';
       const emptyCls = current ? '' : 'is-empty';
-      return `<td class="cell eigyou ${cellClass(d)}"
-          data-eigyou-for="${dateStr}"
-          data-record-id="${recordId}"
-          data-current="${current}">
-        <span class="eigyou-display ${emptyCls}">${text}</span>
-      </td>`;
+      return `<td class="cell eigyou ${cellClass(d)}" data-eigyou-for="${dateStr}" data-record-id="${recordId}" data-current="${current}"><span class="eigyou-display ${emptyCls}">${text}</span></td>`;
     }).join('');
 
     // サービス提供時間：表示のみ（営業パターンから導出）
@@ -338,10 +343,11 @@
         await saveDayPattern(dateStr, newPattern, recordId);
         const fresh = await fetchDayMasters(currentWeekStart);
         currentDayMap = fresh;
-        // td自身を含めて全セルを更新（data-currentも更新される）
-        applyDayMapToCells(root, fresh);
-        finished = true;  // applyDayMapToCellsで中身が書き換わるためexit不要
+        // 先にeditingを外し<select>を<span>へ戻してからセル更新（applyDayMapToCellsは.editingをskipするため）
+        finished = true;
         td.classList.remove('editing');
+        td.innerHTML = `<span class="eigyou-display ${newPattern ? '' : 'is-empty'}">${newPattern || '未設定'}</span>`;
+        applyDayMapToCells(root, fresh);
         setIndicator(root, '✓ 保存しました', 'saved');
       } catch (_) {
         setIndicator(root, '保存失敗', 'saving');
