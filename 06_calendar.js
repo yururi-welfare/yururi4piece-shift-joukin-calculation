@@ -1,0 +1,303 @@
+/**
+ * 放デイシフト - カレンダータブ (FullCalendar)
+ * アプリ60のシフトをカレンダー表示、空きスロットクリック→登録ダイアログ
+ * 読み込み順: 6（ダイアログ・mainより前）
+ */
+(function () {
+  'use strict';
+
+  const App = window.ShiftApp;
+  const { Config, Api, Utils, log, err } = App;
+
+  let fc = null;              // FullCalendar インスタンス
+  let inited = false;
+  let suppressDateChange = false;  // 外部からgotoDateで動かした時の自己通知抑止
+
+  // ラベル: アクティブビューボタンの更新
+  function setActiveViewBtn(container, viewName) {
+    container.querySelectorAll('.view-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.view === viewName);
+    });
+  }
+
+  // 日付タイトル更新
+  function updateDateTitle(container) {
+    if (!fc) return;
+    const el = container.querySelector('.date-title');
+    if (!el) return;
+    const view = fc.view;
+    const start = view.currentStart;
+    const end = new Date(view.currentEnd);
+    end.setDate(end.getDate() - 1);
+
+    if (view.type === 'dayGridMonth') {
+      el.textContent = start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' });
+    } else if (view.type === 'timeGridWeek' || view.type === 'listWeek') {
+      const m = start.getMonth() + 1;
+      el.textContent = `${start.getFullYear()}年 ${m}/${start.getDate()} - ${end.getMonth() + 1}/${end.getDate()}`;
+    } else {
+      el.textContent = start.toLocaleDateString('ja-JP', {
+        year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
+      });
+    }
+  }
+
+  // 資格フィールドの値（単一/複数選択どちらでも対応）を文字列で返す
+  function readQualification(rec) {
+    const F = Config.SHIFT_FIELDS;
+    const field = rec[F.qualification];
+    if (!field) return '';
+    const v = field.value;
+    if (Array.isArray(v)) return v.join(' / ');
+    return v || '';
+  }
+
+  // 資格配列（複数選択の場合に対応）
+  function readQualificationList(rec) {
+    const F = Config.SHIFT_FIELDS;
+    const field = rec[F.qualification];
+    if (!field) return [];
+    const v = field.value;
+    if (Array.isArray(v)) return v;
+    return v ? [v] : [];
+  }
+
+  // アプリ60のレコード → FullCalendarイベント変換
+  function recordToEvent(rec) {
+    const F = Config.SHIFT_FIELDS;
+    const startDate = rec[F.startDate] && rec[F.startDate].value;
+    const startTime = (rec[F.startTime] && rec[F.startTime].value) || '00:00';
+    const endDate   = rec[F.endDate]   && rec[F.endDate].value;
+    const endTime   = (rec[F.endTime]   && rec[F.endTime].value) || startTime;
+    if (!startDate) return null;
+    const name = (rec[F.employeeName] && rec[F.employeeName].value) || '(未設定)';
+    const qualList = readQualificationList(rec);
+    const qualStr  = qualList.join(' / ');
+    const title = qualStr ? `${name}（${qualStr}）` : name;
+    const color = qualificationColor(qualList);
+
+    return {
+      id: rec.$id.value,
+      title: title,
+      start: `${startDate}T${startTime}`,
+      end: endDate ? `${endDate}T${endTime}` : `${startDate}T${endTime}`,
+      backgroundColor: color,
+      borderColor: color,
+      extendedProps: { record: rec },
+    };
+  }
+
+  // 資格に応じた色（優先順位: 児発管 > 常勤 > 非常勤 > その他）
+  function qualificationColor(qualList) {
+    if (qualList.includes('児発管')) return '#4c6ef5';
+    if (qualList.includes('常勤'))   return '#38a169';
+    if (qualList.includes('非常勤')) return '#ed8936';
+    return '#718096';
+  }
+
+  // Date → "YYYY-MM-DD"
+  function toDateStr(d) {
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+  // Date → "HH:MM"
+  function toTimeStr(d) {
+    return String(d.getHours()).padStart(2, '0') + ':' +
+      String(d.getMinutes()).padStart(2, '0');
+  }
+
+  // イベントのドラッグ移動／リサイズで呼ばれる共通処理
+  async function handleEventTimeChange(info, reason) {
+    const ev = info.event;
+    const start = ev.start;
+    const end   = ev.end || new Date(start.getTime() + 15 * 60 * 1000);
+    const recordId = ev.id;
+    if (!recordId || !start) { info.revert(); return; }
+
+    const payload = {
+      '開始日付': toDateStr(start),
+      '開始時間': toTimeStr(start),
+      '終了日付': toDateStr(end),
+      '終了時間': toTimeStr(end),
+    };
+    log(`${reason}による時間変更`, { id: recordId, payload });
+
+    try {
+      await Api.updateShift(recordId, payload);
+      // 成功時は extendedProps.record の値も更新（編集ダイアログで新値が見えるように）
+      const rec = ev.extendedProps.record;
+      if (rec) {
+        rec['開始日付'] = { value: payload['開始日付'] };
+        rec['開始時間'] = { value: payload['開始時間'] };
+        rec['終了日付'] = { value: payload['終了日付'] };
+        rec['終了時間'] = { value: payload['終了時間'] };
+      }
+    } catch (e) {
+      info.revert();
+      alert(`${reason}での保存に失敗しました。\n詳細はコンソールを確認してください。`);
+    }
+  }
+
+  // イベントソース：FullCalendarが求める期間を受け取り、app60から取得
+  function eventSource(fetchInfo, success, failure) {
+    const start = fetchInfo.start;
+    const end = new Date(fetchInfo.end);
+    end.setDate(end.getDate() - 1);
+    Api.fetchShifts(start, end)
+      .then((records) => {
+        const events = records.map(recordToEvent).filter(Boolean);
+        success(events);
+      })
+      .catch((e) => { err('events取得失敗', e); failure(e); });
+  }
+
+  const Calendar = {
+    // タブ初回表示時にFullCalendarを生成
+    // initialDate: 初期表示日（チェック表の週開始と同期するため）
+    async initIfNeeded(container, initialDate) {
+      if (inited) return;
+      if (typeof FullCalendar === 'undefined') {
+        err('FullCalendarライブラリが読み込まれていません（CDN読み込み順を確認）');
+        container.querySelector('#fc-calendar').innerHTML =
+          '<div style="padding:20px;color:#c53030;">FullCalendar が読み込まれていません。kintoneのJSカスタマイズに CDN を追加してください。</div>';
+        return;
+      }
+
+      inited = true;
+      const calEl = container.querySelector('#fc-calendar');
+
+      fc = new FullCalendar.Calendar(calEl, {
+        locale:        Config.CALENDAR.LOCALE,
+        initialView:   Config.CALENDAR.INITIAL_VIEW,
+        initialDate:   initialDate || undefined,
+        slotMinTime:   Config.CALENDAR.SLOT_MIN_TIME,
+        slotMaxTime:   Config.CALENDAR.SLOT_MAX_TIME,
+        slotDuration:  Config.CALENDAR.SLOT_DURATION,
+        snapDuration:  Config.CALENDAR.SNAP_DURATION,
+        firstDay:      0,      // 日曜始まり
+        allDaySlot:    false,
+        headerToolbar: false,  // カスタムツールバー使用
+        selectable:    true,
+        editable:      true,   // ドラッグ移動・リサイズで時間変更
+        eventDurationEditable: true,
+        eventStartEditable:    true,
+        nowIndicator:  true,
+        height:        'auto',
+        expandRows:    false,
+        slotLabelFormat: {
+          hour: 'numeric', minute: '2-digit', omitZeroMinute: true,
+          meridiem: false, hour12: false,
+        },
+        events: eventSource,
+        datesSet: () => {
+          updateDateTitle(container);
+          // 外部からgotoDateで動かしたときは自己通知を抑止（ループ防止）
+          if (suppressDateChange) return;
+          if (typeof Calendar.onDateChange === 'function') {
+            Calendar.onDateChange(fc.view.currentStart);
+          }
+        },
+
+        // 曜日ヘッダー: 祝日クラス付与＋祝日名表示
+        dayHeaderDidMount: (info) => {
+          const name = Utils.isHoliday(info.date);
+          if (name) {
+            info.el.classList.add('is-holiday');
+            const cushion = info.el.querySelector('.fc-col-header-cell-cushion') || info.el;
+            // 重複追加を防止
+            if (!cushion.querySelector('.holiday-name')) {
+              const span = document.createElement('span');
+              span.className = 'holiday-name';
+              span.textContent = name;
+              cushion.appendChild(span);
+            }
+          }
+        },
+
+        // 月ビューの各日付セル
+        dayCellDidMount: (info) => {
+          if (Utils.isHoliday(info.date)) {
+            info.el.classList.add('is-holiday');
+          }
+        },
+        select: (info) => {
+          App.ShiftDialog.showCreate(info.start, info.end, () => {
+            fc.refetchEvents();
+          });
+          fc.unselect();
+        },
+        eventClick: (info) => {
+          App.ShiftDialog.showEdit(info.event.extendedProps.record, () => {
+            fc.refetchEvents();
+          });
+        },
+        eventDrop:   (info) => handleEventTimeChange(info, 'ドラッグ移動'),
+        eventResize: (info) => handleEventTimeChange(info, 'リサイズ'),
+      });
+
+      fc.render();
+      setActiveViewBtn(container, Config.CALENDAR.INITIAL_VIEW);
+      updateDateTitle(container);
+      log('FullCalendar 初期化完了');
+    },
+
+    // タブ切替後のサイズ調整（非表示→表示時は再計算が必要）
+    onShow() {
+      if (fc) setTimeout(() => fc.updateSize(), 0);
+    },
+
+    // 外部(チェック表)から指定日付へ移動（datesSetの自己通知を抑止）
+    gotoDate(date) {
+      if (!fc || !date) return;
+      suppressDateChange = true;
+      try { fc.gotoDate(date); }
+      finally { setTimeout(() => { suppressDateChange = false; }, 0); }
+    },
+
+    // 現在カレンダーが表示している基準日（初期化前はnull）
+    getCurrentDate() {
+      return fc ? fc.view.currentStart : null;
+    },
+
+    // 外部から差し替え可能なフック： 日付変更時に main が受け取る
+    onDateChange: null,
+
+    bindToolbar(container) {
+      const q = (sel) => container.querySelector(sel);
+
+      q('.btn-prev')  && (q('.btn-prev').onclick  = () => { fc && fc.prev();  });
+      q('.btn-next')  && (q('.btn-next').onclick  = () => { fc && fc.next();  });
+      q('.btn-today') && (q('.btn-today').onclick = () => { fc && fc.today(); });
+
+      container.querySelectorAll('.view-btn').forEach((btn) => {
+        btn.onclick = () => {
+          if (!fc) return;
+          fc.changeView(btn.dataset.view);
+          setActiveViewBtn(container, btn.dataset.view);
+        };
+      });
+    },
+
+    // パネルのHTML（空の状態）
+    buildPanelHtml() {
+      return `
+        <div class="fc-toolbar-row">
+          <div class="nav-group">
+            <button class="btn-prev">◀</button>
+            <button class="btn-today">今日</button>
+            <button class="btn-next">▶</button>
+            <span class="date-title"></span>
+          </div>
+          <div class="nav-group">
+            <button class="view-btn" data-view="timeGridDay">日</button>
+            <button class="view-btn" data-view="timeGridWeek">週</button>
+            <button class="view-btn" data-view="dayGridMonth">月</button>
+          </div>
+        </div>
+        <div id="fc-calendar"></div>`;
+    },
+  };
+
+  App.Calendar = Calendar;
+})();

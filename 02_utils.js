@@ -46,6 +46,16 @@
       const p = record && record['営業パターン'] && record['営業パターン'].value;
       return p && PATTERNS[p] ? PATTERNS[p] : null;
     },
+
+    // 営業時間文字列 "10:00〜18:00" を {start, end} に分解
+    // 記号は 〜 または ~ を想定。半角/全角コロン両対応
+    parseHourRange(str) {
+      if (!str) return null;
+      const m = String(str).replace(/[：]/g, ':').match(/(\d{1,2}:\d{2})\s*[〜~]\s*(\d{1,2}:\d{2})/);
+      if (!m) return null;
+      const pad = (t) => t.length === 4 ? '0' + t : t; // "9:30" → "09:30"
+      return { start: pad(m[1]), end: pad(m[2]) };
+    },
   };
 
   App.Utils = Utils;

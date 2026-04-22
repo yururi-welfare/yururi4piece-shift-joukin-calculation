@@ -135,20 +135,26 @@
         td.textContent = p ? p.サービス : '';
       });
 
-      // スタッフ（児発管など）
+      // ※ 児発管セル(staff-cell)の描画は applyShiftsToStaffCells に移行
+    },
+
+    // 役割ごとのシフトマップ（role → dateStr → app60レコード）を受け取り、該当セルを描画
+    // 例: rolesShiftMap = { '児発管': { '2026-04-27': {...app60レコード...} } }
+    applyShiftsToStaffCells(root, rolesShiftMap) {
       root.querySelectorAll('td.staff-cell').forEach((td) => {
         if (td.classList.contains('editing')) return;
         const dateStr = td.dataset.staffFor;
         const role = td.dataset.staffRole;
-        const rec = dayMap[dateStr];
-        const current = (rec && rec[role] && rec[role].value) || '';
+        const roleMap = rolesShiftMap[role];
+        const rec = roleMap && roleMap[dateStr];
+        const name = (rec && rec['従業員名'] && rec['従業員名'].value) || '';
         const recordId = (rec && rec['$id'] && rec['$id'].value) || '';
-        td.dataset.current = current;
+        td.dataset.current = name;
         td.dataset.recordId = recordId;
         const display = td.querySelector('.staff-display');
         if (display) {
-          display.textContent = current || '未設定';
-          display.classList.toggle('is-empty', !current);
+          display.textContent = name || '未設定';
+          display.classList.toggle('is-empty', !name);
         }
       });
     },
