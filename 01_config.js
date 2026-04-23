@@ -48,6 +48,27 @@
       SLOT_DURATION:  '00:15:00',
       SNAP_DURATION:  '00:15:00',
     },
+    // サイドバー
+    SIDEBAR: {
+      WIDTH: 260,
+      STORAGE_OPEN_KEY:   'hodeiShiftSidebarOpen',
+      STORAGE_LEGEND_KEY: 'hodeiShiftLegendState',
+    },
+    // 凡例色（配置の種類・資格）
+    LEGEND_COLORS: {
+      placement: {
+        '管理者兼児発管': '#4c6ef5',
+        '常勤専従':       '#38a169',
+        '常勤換算':       '#ed8936',
+        '休憩ヘルプ':     '#718096',
+      },
+      qualification: {
+        '児発管':  '#4c6ef5',
+        '常勤':    '#38a169',
+        '非常勤':  '#ed8936',
+        'その他':  '#a0aec0',
+      },
+    },
   };
 
   // 実行時に変動するState

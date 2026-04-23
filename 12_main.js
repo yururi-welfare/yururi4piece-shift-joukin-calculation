@@ -1,7 +1,7 @@
 /**
  * 放デイシフト - エントリポイント
- * ルート要素生成・タブ切替・kintoneイベント登録
- * 読み込み順: 8 (最後)
+ * 2カラム構造(サイドバー+メイン)・タブ切替・kintoneイベント登録
+ * 読み込み順: 12 (最後)
  *
  * ★ kintone アプリ設定 > JavaScript/CSS でカスタマイズ（PC用）に必要な読み込み順 ★
  *   1. https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js
@@ -14,14 +14,19 @@
  *   8. 05_editor.js
  *   9. 06_calendar.js
  *  10. 07_shift_dialog.js
- *  11. 08_main.js
+ *  11. 08_sidebar.js
+ *  12. 09_mini_calendar.js
+ *  13. 10_legend.js
+ *  14. 11_monthly_hours.js
+ *  15. 12_main.js
  *   CSS: 01_customize.css
  */
 (function () {
   'use strict';
 
   const App = window.ShiftApp;
-  const { Config, Api, Render, Editor, Calendar, State, Utils, log, err } = App;
+  const { Config, Api, Render, Editor, Calendar, Sidebar, MiniCalendar, Legend,
+          MonthlyHours, State, Utils, log, err } = App;
 
   // ── ルート要素（なければ自動生成）
   function ensureRoot() {
@@ -47,15 +52,21 @@
     return root;
   }
 
-  // ── タブ構造の外枠を描画
+  // ── シェル（サイドバー+メイン2カラム）
   function buildShell() {
     return `
-      <div class="shift-tabs" role="tablist">
-        <button class="shift-tab active" data-tab="checklist">常勤チェック表</button>
-        <button class="shift-tab" data-tab="calendar">カレンダー</button>
-      </div>
-      <div class="shift-panel active" data-panel="checklist" id="panel-checklist"></div>
-      <div class="shift-panel" data-panel="calendar" id="panel-calendar"></div>`;
+      <div class="shift-layout">
+        ${Sidebar.buildHtml()}
+        <div class="shift-main">
+          ${Sidebar.buildToggleHtml()}
+          <div class="shift-tabs" role="tablist">
+            <button class="shift-tab active" data-tab="checklist">常勤チェック表</button>
+            <button class="shift-tab" data-tab="calendar">カレンダー</button>
+          </div>
+          <div class="shift-panel active" data-panel="checklist" id="panel-checklist"></div>
+          <div class="shift-panel" data-panel="calendar" id="panel-calendar"></div>
+        </div>
+      </div>`;
   }
 
   // ── 常勤チェック表パネルの描画
@@ -87,37 +98,40 @@
 
   function bindChecklistNav(panel, root) {
     const q = (sel) => panel.querySelector(sel);
-    const syncCalendar = () => {
-      // カレンダー初期化済みなら同じ週へ移動
+    const syncAll = () => {
       if (Calendar && typeof Calendar.gotoDate === 'function') {
         Calendar.gotoDate(State.currentWeekStart);
+      }
+      if (MiniCalendar) {
+        MiniCalendar.gotoDate(State.currentWeekStart);
+        MiniCalendar.setActiveWeek(State.currentWeekStart);
       }
     };
     if (q('.btn-prev')) q('.btn-prev').onclick = () => {
       State.currentWeekStart.setDate(State.currentWeekStart.getDate() - 7);
       renderChecklistPanel(root);
-      syncCalendar();
+      syncAll();
     };
     if (q('.btn-next')) q('.btn-next').onclick = () => {
       State.currentWeekStart.setDate(State.currentWeekStart.getDate() + 7);
       renderChecklistPanel(root);
-      syncCalendar();
+      syncAll();
     };
     if (q('.btn-today')) q('.btn-today').onclick = () => {
       State.currentWeekStart = Utils.startOfWeek(new Date());
       renderChecklistPanel(root);
-      syncCalendar();
+      syncAll();
     };
   }
 
-  // ── カレンダーパネル準備（タブHTMLのみ。FullCalendar自体は初回表示時に初期化）
+  // ── カレンダーパネル準備
   function prepareCalendarPanel(root) {
     const panel = root.querySelector('#panel-calendar');
     panel.innerHTML = Calendar.buildPanelHtml();
     Calendar.bindToolbar(panel);
   }
 
-  // ── タブ切替（切替時に常に最新データを再取得して表示）
+  // ── タブ切替
   function bindTabs(root) {
     const tabs = root.querySelectorAll('.shift-tab');
     const panels = root.querySelectorAll('.shift-panel');
@@ -130,15 +144,11 @@
         if (key === 'calendar') {
           const panel = root.querySelector('#panel-calendar');
           const wasInited = Calendar.isInitialized && Calendar.isInitialized();
-          // 初回初期化時はチェック表の週開始日に合わせる
           await Calendar.initIfNeeded(panel, State.currentWeekStart);
-          // 既に初期化済みでも、ここでチェック表と同じ週へ同期
           Calendar.gotoDate(State.currentWeekStart);
           Calendar.onShow();
-          // 既に初期化済みなら最新シフト＆背景を再取得（初回は initIfNeeded内で取得済み）
           if (wasInited) Calendar.refreshEvents();
         } else if (key === 'checklist') {
-          // タブを開くたびに最新の日付マスタ＋配置別シフトを再取得して再描画
           renderChecklistPanel(root).catch((e) => err('再描画失敗', e));
         }
       };
@@ -149,12 +159,60 @@
   function bindCalendarToChecklist(root) {
     Calendar.onDateChange = (currentStart) => {
       const newWeekStart = Utils.startOfWeek(currentStart);
-      // 既に同じ週を表示しているなら何もしない（ループ防止）
       if (Utils.fmtDate(newWeekStart) === Utils.fmtDate(State.currentWeekStart)) return;
       log('カレンダー→チェック表 週同期', Utils.fmtDate(newWeekStart));
       State.currentWeekStart = newWeekStart;
       renderChecklistPanel(root).catch((e) => err('同期再描画失敗', e));
+      if (MiniCalendar) {
+        MiniCalendar.gotoDate(newWeekStart);
+        MiniCalendar.setActiveWeek(newWeekStart);
+      }
     };
+  }
+
+  // ── サイドバー初期化
+  async function initSidebar(root) {
+    const layoutEl = root.querySelector('.shift-layout');
+
+    // 開閉状態の復元
+    Sidebar.applyOpenState(layoutEl, Sidebar.loadOpenState());
+    Sidebar.bindToggle(layoutEl, () => {
+      // トグル後に各カレンダーのサイズを再計算
+      if (Calendar && Calendar.onShow) Calendar.onShow();
+    });
+
+    const sidebarEl = root.querySelector('.shift-sidebar');
+    if (!sidebarEl) return;
+
+    // ミニカレンダー：日付クリック→チェック表週へ同期／月変更→月間時間再集計
+    MiniCalendar.init(
+      sidebarEl,
+      (date) => {
+        const newWeekStart = Utils.startOfWeek(date);
+        State.currentWeekStart = newWeekStart;
+        renderChecklistPanel(root).catch((e) => err('ミニ→チェック表失敗', e));
+        if (Calendar && Calendar.isInitialized && Calendar.isInitialized()) {
+          Calendar.gotoDate(newWeekStart);
+        }
+      },
+      async (year, month) => {
+        Legend.updateTitleWithMonth(month);
+        await MonthlyHours.setMonth(year, month);
+        Legend.refreshHoursText();
+      }
+    );
+
+    // 凡例：初期化（スタッフ取得 → 描画 → フィルタ適用）
+    await Legend.init(sidebarEl);
+
+    // 初期月の月間時間を集計して凡例に反映
+    const now = MiniCalendar.getMonth() || { year: new Date().getFullYear(), month: new Date().getMonth() };
+    Legend.updateTitleWithMonth(now.month);
+    await MonthlyHours.setMonth(now.year, now.month);
+    Legend.refreshHoursText();
+
+    // 初期週ハイライト
+    MiniCalendar.setActiveWeek(State.currentWeekStart);
   }
 
   // ── kintone 一覧画面イベント
@@ -176,6 +234,7 @@
     prepareCalendarPanel(root);
     bindCalendarToChecklist(root);
     renderChecklistPanel(root).catch((e) => err('描画失敗', e));
+    initSidebar(root).catch((e) => err('サイドバー初期化失敗', e));
     return event;
   });
 

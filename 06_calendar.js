@@ -71,10 +71,14 @@
     const endTime   = (rec[F.endTime]   && rec[F.endTime].value) || startTime;
     if (!startDate) return null;
     const name = (rec[F.employeeName] && rec[F.employeeName].value) || '(未設定)';
+    const empNum = (rec[F.employeeNumber] && rec[F.employeeNumber].value) || '';
+    const placement = (rec[F.placementType] && rec[F.placementType].value) || '';
     const qualList = readQualificationList(rec);
     const qualStr  = qualList.join(' / ');
     const title = qualStr ? `${name}（${qualStr}）` : name;
     const color = qualificationColor(qualList);
+    // 凡例フィルタ用キー（未設定は "none"）
+    const qualKey = qualList[0] || 'その他';
 
     return {
       id: rec.$id.value,
@@ -83,7 +87,12 @@
       end: endDate ? `${endDate}T${endTime}` : `${startDate}T${endTime}`,
       backgroundColor: color,
       borderColor: color,
-      extendedProps: { record: rec },
+      extendedProps: {
+        record: rec,
+        placement: placement,
+        qualification: qualKey,
+        employeeNumber: empNum,
+      },
     };
   }
 
@@ -367,6 +376,14 @@
           if (Utils.isHoliday(info.date)) {
             info.el.classList.add('is-holiday');
           }
+        },
+        // イベントDOMに凡例フィルタ用の data-* を付与
+        eventDidMount: (info) => {
+          const p = info.event.extendedProps || {};
+          if (p.isMarker) return;
+          if (p.placement != null)      info.el.dataset.placement      = p.placement || 'none';
+          if (p.qualification != null)  info.el.dataset.qualification  = p.qualification || 'その他';
+          if (p.employeeNumber != null) info.el.dataset.employeeNumber = p.employeeNumber || 'none';
         },
         select: (info) => {
           App.ShiftDialog.showCreate(info.start, info.end, () => {

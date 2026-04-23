@@ -15,7 +15,258 @@
   z-index: 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --sidebar-width: 260px;
 }
+
+/* ==============================================================
+   2カラムレイアウト（サイドバー + メイン）
+   ============================================================== */
+.shift-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  width: 100%;
+}
+.shift-sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: width 0.2s ease, margin-right 0.2s ease, opacity 0.15s ease;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+.shift-layout.sidebar-collapsed .shift-sidebar {
+  width: 0;
+  margin-right: -20px;
+  opacity: 0;
+  border: none;
+  pointer-events: none;
+}
+.shift-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  position: relative;
+}
+
+/* サイドバートグルボタン */
+.sidebar-toggle {
+  position: absolute;
+  top: 0;
+  left: -16px;
+  width: 28px;
+  height: 48px;
+  border: 1px solid #cbd5e0;
+  background: #ffffff;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #4a5568;
+  z-index: 5;
+  transition: background .12s ease, border-color .12s ease;
+}
+.sidebar-toggle:hover {
+  background: #f7fafc;
+  border-color: #a0aec0;
+  color: #2d3748;
+}
+.shift-layout.sidebar-collapsed .sidebar-toggle {
+  left: -8px;
+}
+
+/* ==============================================================
+   サイドバー共通
+   ============================================================== */
+.sidebar-section {
+  padding: 16px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+.sidebar-section:last-child { border-bottom: none; }
+.sidebar-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2d3748;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ==============================================================
+   ミニカレンダー
+   ============================================================== */
+#mini-calendar { font-size: 12px; }
+#mini-calendar .fc-toolbar {
+  padding: 0 !important;
+  margin-bottom: 10px !important;
+  gap: 0 !important;
+}
+#mini-calendar .fc-toolbar-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #2d3748 !important;
+  margin: 0 8px !important;
+}
+#mini-calendar .fc-button {
+  padding: 2px 8px !important;
+  font-size: 12px !important;
+  background: transparent !important;
+  color: #4a5568 !important;
+  border: 1px solid #cbd5e0 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+#mini-calendar .fc-button:hover:not(:disabled) {
+  background: #f7fafc !important;
+  color: #2d3748 !important;
+}
+#mini-calendar .fc-button:focus { box-shadow: none !important; outline: none !important; }
+
+#mini-calendar .fc-col-header-cell {
+  padding: 4px 0 !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #4a5568 !important;
+  background: #f7fafc !important;
+  border-color: #e2e8f0 !important;
+}
+#mini-calendar .fc-daygrid-day-frame {
+  min-height: 28px !important;
+  height: 28px !important;
+}
+#mini-calendar .fc-daygrid-day-events { display: none !important; }
+#mini-calendar .fc-daygrid-day-number {
+  font-size: 12px !important;
+  padding: 4px !important;
+  width: 100% !important;
+  text-align: center !important;
+  color: #2d3748;
+}
+#mini-calendar .fc-daygrid-day {
+  cursor: pointer !important;
+  border-color: #edf2f7 !important;
+}
+#mini-calendar .fc-daygrid-day:hover { background: #edf2f7 !important; }
+
+/* 土日祝 */
+#mini-calendar .fc-daygrid-day.is-sat { background: #ebf8ff !important; }
+#mini-calendar .fc-daygrid-day.is-sat .fc-daygrid-day-number { color: #2c5282 !important; }
+#mini-calendar .fc-daygrid-day.is-sun { background: #fff5f5 !important; }
+#mini-calendar .fc-daygrid-day.is-sun .fc-daygrid-day-number { color: #9b2c2c !important; }
+
+/* 今日 */
+#mini-calendar .fc-day-today { background: #e6efff !important; }
+#mini-calendar .fc-day-today .fc-daygrid-day-number {
+  background: #4c6ef5 !important;
+  color: #ffffff !important;
+  border-radius: 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+  line-height: 22px !important;
+  padding: 0 !important;
+  margin: 2px auto !important;
+  display: block !important;
+}
+
+/* 現在表示中の週をハイライト（チェック表と同期） */
+#mini-calendar .mini-week-active { box-shadow: inset 0 0 0 2px #4c6ef5 !important; }
+
+/* ==============================================================
+   凡例
+   ============================================================== */
+#shift-legend { display: flex; flex-direction: column; gap: 14px; }
+.legend-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.legend-block-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4a5568;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+.legend-persons-actions { display: flex; gap: 4px; }
+.legend-mini-btn {
+  font-size: 10px;
+  padding: 2px 8px;
+  border: 1px solid #cbd5e0;
+  background: #ffffff;
+  border-radius: 3px;
+  color: #4a5568;
+  cursor: pointer;
+  font-family: inherit;
+}
+.legend-mini-btn:hover { background: #f7fafc; border-color: #a0aec0; }
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #2d3748;
+  transition: background .1s ease;
+}
+.legend-item:hover { background: #f7fafc; }
+.legend-cb {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: #4c6ef5;
+}
+.legend-color {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+.legend-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.legend-hours {
+  font-size: 10px;
+  color: #718096;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+.legend-empty {
+  font-size: 11px;
+  color: #a0aec0;
+  padding: 4px;
+}
+.legend-persons .legend-item { padding-left: 4px; }
 
 /* 標準のレコード一覧を隠したい場合は有効化
 .gaia-argoui-app-index-listview,
@@ -372,21 +623,27 @@
   cursor: pointer;
 }
 
-/* スロット高さ（15分スロット1つあたり） */
-.fc .fc-timegrid-slot { height: 12px !important; }
+/* スロット高さ（15分スロット1つあたり）— 居宅カレンダーと統一(10px) */
+/* FC v6 のラベル rowspan ロジックに任せるため、レーン高さのみ指定 */
+.fc .fc-timegrid-slot { height: 10px !important; }
 .fc .fc-timegrid-slot-label-cushion { font-size: 11px; }
 
 /* 営業開始/終了マーカー（背景・枠あり、文字は黒、非インタラクティブ） */
+/* 10pxスロット = 30分マーカー20px 内に収めるため余白・文字サイズを抑える */
 .fc .fc-event.shift-marker {
   background: #e6edf5 !important;
   border: 1px dashed #718096 !important;
   color: #1a202c !important;
-  font-size: 11px !important;
+  font-size: 10px !important;
   font-weight: 500 !important;
+  line-height: 1.2 !important;
   text-align: center !important;
-  padding: 2px 4px !important;
+  padding: 0 4px !important;
   cursor: default !important;
   pointer-events: none !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  min-height: 0 !important;
   opacity: 0.95;
 }
 .fc .fc-event.shift-marker .fc-event-time { display: none !important; }
