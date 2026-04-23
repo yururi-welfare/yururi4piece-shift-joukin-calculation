@@ -268,6 +268,49 @@
 }
 .legend-persons .legend-item { padding-left: 4px; }
 
+/* 常勤換算の人数内訳バー（128h = 1人） */
+.legend-fte-breakdown {
+  margin: 2px 0 6px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fte-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 84px;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 2px;
+  font-size: 10px;
+  color: #4a5568;
+}
+.fte-label {
+  font-variant-numeric: tabular-nums;
+  color: #718096;
+}
+.fte-bar {
+  height: 8px;
+  background: #edf2f7;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.fte-fill {
+  display: block;
+  height: 100%;
+  background: #ed8936;
+  border-radius: 4px;
+  transition: width .2s ease;
+}
+.fte-row.is-pending .fte-fill { background: #fbbf24; }
+.fte-hours {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.fte-row.is-filled .fte-hours { color: #38a169; font-weight: 600; }
+.fte-row.is-pending .fte-hours { color: #c53030; }
+.fte-minus { font-weight: 600; }
+
 /* 標準のレコード一覧を隠したい場合は有効化
 .gaia-argoui-app-index-listview,
 .recordlist-gaia { display: none !important; }

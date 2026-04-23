@@ -89,10 +89,45 @@
     },
 
     // 配置の種類の合計時間テキスト（未集計/0は空文字）
+    // ※ 「常勤換算」は「休憩ヘルプ」の時間も合算して表示する
     getPlacementHoursText(placementName) {
-      const h = this._currentData.placements && this._currentData.placements[placementName];
-      if (h == null || h === 0) return '';
+      const map = this._currentData.placements || {};
+      let h = map[placementName] || 0;
+      if (placementName === '常勤換算') {
+        h += map['休憩ヘルプ'] || 0;
+        h = Math.round(h * 100) / 100;
+      }
+      if (h === 0) return '';
       return `${h}h`;
+    },
+
+    // 常勤換算の人数内訳を返す（1人 = 128h）
+    // 休憩ヘルプの時間も常勤換算に合算した合計をもとに算出
+    // 返り値: { totalHours, people: [{ index, hours, filled, remaining }] }
+    //  - filled=true : 128h達成済み（✓表示）
+    //  - filled=false: 最後の不足枠。remaining=128-hours（マイナス表示用）
+    getFteBreakdown() {
+      const FTE_HOURS = 128;
+      const map = this._currentData.placements || {};
+      let h = (map['常勤換算'] || 0) + (map['休憩ヘルプ'] || 0);
+      h = Math.round(h * 100) / 100;
+      if (h === 0) return { totalHours: 0, people: [] };
+
+      const full = Math.floor(h / FTE_HOURS);
+      const rem = Math.round((h - full * FTE_HOURS) * 100) / 100;
+      const people = [];
+      for (let i = 0; i < full; i++) {
+        people.push({ index: i + 1, hours: FTE_HOURS, filled: true, remaining: 0 });
+      }
+      if (rem > 0 || people.length === 0) {
+        people.push({
+          index: full + 1,
+          hours: rem,
+          filled: false,
+          remaining: Math.round((FTE_HOURS - rem) * 100) / 100,
+        });
+      }
+      return { totalHours: h, people };
     },
 
     // キャッシュクリア（データ変更後の再集計用）

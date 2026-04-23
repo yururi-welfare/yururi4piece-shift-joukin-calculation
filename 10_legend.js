@@ -49,6 +49,11 @@
       Object.keys(Config.LEGEND_COLORS.placement).forEach((k) => {
         if (!(k in Legend.state.placement)) Legend.state.placement[k] = true;
       });
+      // 凡例から外した配置(例:休憩ヘルプ)が過去のlocalStorageに残っていると
+      // applyFilter でカレンダーから非表示にしてしまうため、未定義キーを掃除
+      Object.keys(Legend.state.placement).forEach((k) => {
+        if (!(k in Config.LEGEND_COLORS.placement)) delete Legend.state.placement[k];
+      });
 
       Legend._allStaff = await Api.fetchAllStaff();
       Legend._allStaff.forEach((s) => {
@@ -82,19 +87,45 @@
           ? App.MonthlyHours.getPlacementHoursText(name)
           : '';
         const hoursHtml = hours ? `<span class="legend-hours">${hours}</span>` : '';
-        return `
+        const labelHtml = `
           <label class="legend-item legend-placement" data-placement="${name}">
             <input type="checkbox" class="legend-cb" data-kind="placement" data-key="${name}" ${checked}>
             <span class="legend-color" style="background:${color}"></span>
             <span class="legend-name">${name}</span>
             ${hoursHtml}
           </label>`;
+        if (name === '常勤換算') {
+          return labelHtml + Legend._buildFteBreakdown();
+        }
+        return labelHtml;
       }).join('');
       return `
         <div class="legend-block">
           <div class="legend-block-title">配置の種類</div>
           ${items}
         </div>`;
+    },
+
+    // 常勤換算の人数内訳（128hで1人、最後の枠はマイナス表示）
+    _buildFteBreakdown() {
+      if (!App.MonthlyHours || !App.MonthlyHours.getFteBreakdown) return '';
+      const data = App.MonthlyHours.getFteBreakdown();
+      if (!data || !data.people || data.people.length === 0) return '';
+      const FTE = 128;
+      const rows = data.people.map((p) => {
+        const pct = Math.min(100, (p.hours / FTE) * 100);
+        const cls = p.filled ? 'is-filled' : 'is-pending';
+        const right = p.filled
+          ? `${p.hours}h ✓`
+          : `${p.hours}h <span class="fte-minus">(-${p.remaining}h)</span>`;
+        return `
+          <div class="fte-row ${cls}">
+            <span class="fte-label">${p.index}人目</span>
+            <span class="fte-bar"><span class="fte-fill" style="width:${pct}%"></span></span>
+            <span class="fte-hours">${right}</span>
+          </div>`;
+      }).join('');
+      return `<div class="legend-fte-breakdown">${rows}</div>`;
     },
 
     _buildPersonsSection() {
@@ -201,6 +232,14 @@
       document.querySelectorAll('.legend-placement').forEach((el) => {
         update(el, App.MonthlyHours.getPlacementHoursText(el.dataset.placement));
       });
+      // 常勤換算の人数内訳バーを再生成
+      const fteHost = document.querySelector('.legend-placement[data-placement="常勤換算"]');
+      if (fteHost) {
+        const next = fteHost.nextElementSibling;
+        if (next && next.classList.contains('legend-fte-breakdown')) next.remove();
+        const html = Legend._buildFteBreakdown();
+        if (html) fteHost.insertAdjacentHTML('afterend', html);
+      }
     },
 
     // 見出しに対象月を表示

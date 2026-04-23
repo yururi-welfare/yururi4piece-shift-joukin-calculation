@@ -61,12 +61,12 @@
       STORAGE_LEGEND_KEY: 'hodeiShiftLegendState',
     },
     // 凡例色（配置の種類）
+    // ※ 休憩ヘルプは凡例非表示。月間時間は「常勤換算」に合算される (11_monthly_hours.js)
     LEGEND_COLORS: {
       placement: {
         '管理者兼児発管': '#4c6ef5',
         '常勤専従':       '#38a169',
         '常勤換算':       '#ed8936',
-        '休憩ヘルプ':     '#718096',
       },
     },
   };
