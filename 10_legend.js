@@ -78,11 +78,16 @@
       const colors = Config.LEGEND_COLORS.placement;
       const items = Object.entries(colors).map(([name, color]) => {
         const checked = Legend.state.placement[name] ? 'checked' : '';
+        const hours = App.MonthlyHours
+          ? App.MonthlyHours.getPlacementHoursText(name)
+          : '';
+        const hoursHtml = hours ? `<span class="legend-hours">${hours}</span>` : '';
         return `
-          <label class="legend-item">
+          <label class="legend-item legend-placement" data-placement="${name}">
             <input type="checkbox" class="legend-cb" data-kind="placement" data-key="${name}" ${checked}>
             <span class="legend-color" style="background:${color}"></span>
             <span class="legend-name">${name}</span>
+            ${hoursHtml}
           </label>`;
       }).join('');
       return `
@@ -181,9 +186,7 @@
     // 月間時間データが更新された時、凡例の数字部分だけ再描画
     refreshHoursText() {
       if (!App.MonthlyHours) return;
-      document.querySelectorAll('.legend-person').forEach((el) => {
-        const num = el.dataset.employeeNumber;
-        const text = App.MonthlyHours.getPersonHoursText(num);
+      const update = (el, text) => {
         let span = el.querySelector('.legend-hours');
         if (!span && text) {
           span = document.createElement('span');
@@ -191,6 +194,12 @@
           el.appendChild(span);
         }
         if (span) span.textContent = text;
+      };
+      document.querySelectorAll('.legend-person').forEach((el) => {
+        update(el, App.MonthlyHours.getPersonHoursText(el.dataset.employeeNumber));
+      });
+      document.querySelectorAll('.legend-placement').forEach((el) => {
+        update(el, App.MonthlyHours.getPlacementHoursText(el.dataset.placement));
       });
     },
 
