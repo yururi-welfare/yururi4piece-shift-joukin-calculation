@@ -32,7 +32,7 @@
     buildStaffCells(days, placement, slotIndex = 0) {
       return days.map((d) => {
         const dateStr = fmtDate(d);
-        return `<td class="cell staff-cell ${cellClass(d)}" data-staff-for="${dateStr}" data-placement="${placement}" data-slot-index="${slotIndex}" data-record-id="" data-current=""><span class="staff-display is-empty">未設定</span></td>`;
+        return `<td class="cell staff-cell ${cellClass(d)}" data-staff-for="${dateStr}" data-placement="${placement}" data-slot-index="${slotIndex}" data-record-id="" data-current=""><span class="staff-display is-empty"></span></td>`;
       }).join('');
     },
 
@@ -71,7 +71,7 @@
         const rec = dayMap[dateStr];
         const current = (rec && rec['営業パターン'] && rec['営業パターン'].value) || '';
         const recordId = (rec && rec['$id'] && rec['$id'].value) || '';
-        const text = current || '未設定';
+        const text = current || '';
         const emptyCls = current ? '' : 'is-empty';
         return `<td class="cell eigyou ${cellClass(d)}" data-eigyou-for="${dateStr}" data-record-id="${recordId}" data-current="${current}"><span class="eigyou-display ${emptyCls}">${text}</span></td>`;
       }).join('');
@@ -96,7 +96,7 @@
         </colgroup>
         <thead><tr><th colspan="2"></th>${dateHeader}</tr></thead>
         <tbody>
-          <tr class="group-header"><td colspan="9">日の情報</td></tr>
+          <tr class="group-header"><td colspan="9">営業時間</td></tr>
           <tr><td class="row-label" colspan="2">営業時間</td>${rowEigyou}</tr>
           <tr><td class="row-label" colspan="2">サービス\n提供時間</td>${rowService}</tr>
 
@@ -123,7 +123,7 @@
         td.dataset.recordId = recordId;
         const display = td.querySelector('.eigyou-display');
         if (display) {
-          display.textContent = current || '未設定';
+          display.textContent = current || '';
           display.classList.toggle('is-empty', !current);
         }
       });
@@ -161,7 +161,7 @@
     // スタッフセルの内部HTMLを生成（record がなければ「未設定」の単一行）
     // ※ HTMLは1行にまとめる。親tdの white-space: pre-line が効くと改行がテキスト化され中央寄せが崩れるため
     buildStaffCellInner(rec) {
-      if (!rec) return '<span class="staff-display is-empty">未設定</span>';
+      if (!rec) return '<span class="staff-display is-empty"></span>';
       const name  = (rec['従業員名'] && rec['従業員名'].value) || '';
       const sTime = (rec['開始時間'] && rec['開始時間'].value) || '';
       const eTime = (rec['終了時間'] && rec['終了時間'].value) || '';
@@ -169,7 +169,7 @@
       const timeLine = (sTime && eTime)
         ? `<div class="staff-time">${sTime} ~ ${eTime}${hours != null ? ` <span class="staff-hours">( ${hours} )</span>` : ''}</div>`
         : '';
-      return `<div class="staff-display has-data"><div class="staff-name">${name || '未設定'}</div>${timeLine}</div>`;
+      return `<div class="staff-display has-data"><div class="staff-name">${name || ''}</div>${timeLine}</div>`;
     },
   };
 

@@ -50,7 +50,7 @@
 
     const options = ['', ...Object.keys(PATTERNS)]
       .map((opt) =>
-        `<option value="${opt}" ${opt === current ? 'selected' : ''}>${opt || '未設定'}</option>`
+        `<option value="${opt}" ${opt === current ? 'selected' : ''}>${opt || '—'}</option>`
       ).join('');
 
     td.classList.add('editing');
@@ -64,7 +64,7 @@
       if (finished) return;
       finished = true;
       td.classList.remove('editing');
-      td.innerHTML = `<span class="eigyou-display ${td.dataset.current ? '' : 'is-empty'}">${td.dataset.current || '未設定'}</span>`;
+      td.innerHTML = `<span class="eigyou-display ${td.dataset.current ? '' : 'is-empty'}">${td.dataset.current || ''}</span>`;
     };
 
     sel.addEventListener('change', async () => {
@@ -82,7 +82,7 @@
         State.currentDayMap = fresh;
         finished = true;
         td.classList.remove('editing');
-        td.innerHTML = `<span class="eigyou-display ${newPattern ? '' : 'is-empty'}">${newPattern || '未設定'}</span>`;
+        td.innerHTML = `<span class="eigyou-display ${newPattern ? '' : 'is-empty'}">${newPattern || ''}</span>`;
         Render.applyDayMapToCells(root, fresh);
         setIndicator(root, '✓ 保存しました', 'saved');
 
