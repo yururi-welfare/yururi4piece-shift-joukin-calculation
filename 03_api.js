@@ -174,8 +174,9 @@
     },
 
     // 汎用シフト作成（ダイアログから使用）
-    // data = { 従業員番号, 配置の種類, 開始日付, 開始時間, 終了日付, 終了時間 }
+    // data = { 従業員番号, 配置の種類, 開始日付, 開始時間, 終了日付, 終了時間, 休憩開始時間, 休憩終了時間 }
     // ※ 従業員名・資格はルックアップで自動コピーされるためAPIでは設定しない
+    // ※ 休憩フィールドは '' を渡せば明示的に空にする（6時間以下の休憩なし）
     async createShift(data) {
       const F = Config.SHIFT_FIELDS;
       const record = {};
@@ -185,6 +186,9 @@
       if (data[F.startTime])      record[F.startTime]      = { value: data[F.startTime] };
       if (data[F.endDate])        record[F.endDate]        = { value: data[F.endDate] };
       if (data[F.endTime])        record[F.endTime]        = { value: data[F.endTime] };
+      // 休憩は空文字でも送る（明示的な空）
+      if (F.breakStartTime in data) record[F.breakStartTime] = { value: data[F.breakStartTime] || '' };
+      if (F.breakEndTime   in data) record[F.breakEndTime]   = { value: data[F.breakEndTime]   || '' };
       const id = await Api._postShiftRecord(record, { via: 'createShift', input: data });
       if (id == null) throw new Error('シフト作成に失敗しました（詳細はコンソール）');
       return id;
@@ -225,15 +229,22 @@
       }
     },
 
-    // シフト更新（ドラッグ/リサイズ用）
-    // data = { 開始日付, 開始時間, 終了日付, 終了時間 }
+    // シフト更新（ドラッグ/リサイズ／編集モーダルから使用）
+    // data に含まれるキーのみ更新
+    // - 開始日付/開始時間/終了日付/終了時間（ドラッグ・リサイズ・編集）
+    // - 従業員番号/配置の種類（編集モーダル）※従業員名・資格はルックアップで自動再取得
+    // - 休憩開始時間/休憩終了時間（編集モーダル）※空文字で明示的クリア
     async updateShift(recordId, data) {
       const F = Config.SHIFT_FIELDS;
       const record = {};
+      if (F.employeeNumber in data) record[F.employeeNumber] = { value: data[F.employeeNumber] };
+      if (F.placementType  in data) record[F.placementType]  = { value: data[F.placementType] };
       if (data[F.startDate]) record[F.startDate] = { value: data[F.startDate] };
       if (data[F.startTime]) record[F.startTime] = { value: data[F.startTime] };
       if (data[F.endDate])   record[F.endDate]   = { value: data[F.endDate] };
       if (data[F.endTime])   record[F.endTime]   = { value: data[F.endTime] };
+      if (F.breakStartTime in data) record[F.breakStartTime] = { value: data[F.breakStartTime] || '' };
+      if (F.breakEndTime   in data) record[F.breakEndTime]   = { value: data[F.breakEndTime]   || '' };
       console.groupCollapsed('[放デイシフト] シフト更新リクエスト');
       console.log('id:', recordId);
       console.log('record JSON:', JSON.stringify(record, null, 2));
