@@ -69,23 +69,19 @@
     Editor.bindPatternSelects(panel);
     Editor.bindStaffSelects(panel);
 
-    // 日付マスタ(営業パターン) と 資格別シフト を並行取得
+    // 日付マスタ(営業パターン) と 配置別シフトマップ を並行取得
     const endDate = new Date(State.currentWeekStart);
     endDate.setDate(endDate.getDate() + 6);
-    const roleQual = Config.ROLE_QUALIFICATION || {};
-    const roleEntries = Object.entries(roleQual); // [['児発管','児発管'], ...]
 
-    const [dayMap, ...shiftMaps] = await Promise.all([
+    const [dayMap, placementMap] = await Promise.all([
       Api.fetchDayMasters(State.currentWeekStart),
-      ...roleEntries.map(([, qual]) =>
-        Api.fetchShiftsByQualification(State.currentWeekStart, endDate, qual)),
+      Api.fetchShiftsGroupedByPlacement(State.currentWeekStart, endDate),
     ]);
     State.currentDayMap = dayMap;
-    State.currentShiftMaps = {};
-    roleEntries.forEach(([role], i) => { State.currentShiftMaps[role] = shiftMaps[i]; });
+    State.currentShiftMaps = placementMap;
 
     Render.applyDayMapToCells(panel, dayMap);
-    Render.applyShiftsToStaffCells(panel, State.currentShiftMaps);
+    Render.applyShiftsToStaffCells(panel, placementMap);
     log('常勤チェック表 描画完了');
   }
 
@@ -121,7 +117,7 @@
     Calendar.bindToolbar(panel);
   }
 
-  // ── タブ切替
+  // ── タブ切替（切替時に常に最新データを再取得して表示）
   function bindTabs(root) {
     const tabs = root.querySelectorAll('.shift-tab');
     const panels = root.querySelectorAll('.shift-panel');
@@ -133,11 +129,17 @@
         log('タブ切替', key);
         if (key === 'calendar') {
           const panel = root.querySelector('#panel-calendar');
+          const wasInited = Calendar.isInitialized && Calendar.isInitialized();
           // 初回初期化時はチェック表の週開始日に合わせる
           await Calendar.initIfNeeded(panel, State.currentWeekStart);
           // 既に初期化済みでも、ここでチェック表と同じ週へ同期
           Calendar.gotoDate(State.currentWeekStart);
           Calendar.onShow();
+          // 既に初期化済みなら最新シフト＆背景を再取得（初回は initIfNeeded内で取得済み）
+          if (wasInited) Calendar.refreshEvents();
+        } else if (key === 'checklist') {
+          // タブを開くたびに最新の日付マスタ＋配置別シフトを再取得して再描画
+          renderChecklistPanel(root).catch((e) => err('再描画失敗', e));
         }
       };
     });

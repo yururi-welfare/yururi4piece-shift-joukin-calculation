@@ -178,8 +178,9 @@
   }
 
   // 営業開始/終了ラベルの "マーカーイベント" を生成
-  // - 開始ラベル: 営業開始の1時間前から30分幅 (slotMinを下回る場合はクランプ)
-  // - 終了ラベル: 営業終了の1時間後で30分幅 (slotMaxを超える場合はクランプ)
+  // - 開始ラベル: 営業開始時刻の直前30分間（営業開始時刻に下端が接する）
+  // - 終了ラベル: 営業終了時刻の直後30分間（営業終了時刻に上端が接する）
+  // → 15分グリッドにぴったり収まる
   function buildOpenCloseLabels(startDate, endDate, dayMap) {
     const events = [];
     const slotMinM = toMin(Config.CALENDAR.SLOT_MIN_TIME.slice(0, 5));
@@ -200,20 +201,18 @@
         const openM  = toMin(parsed.start);
         const closeM = toMin(parsed.end);
 
-        // 開始ラベル: open - 60 min から 30 min 幅。slotMin 以下や open を越えないようクランプ
+        // 開始ラベル: (open - 30) 〜 open。slotMin より前にはみ出さないようクランプ
         if (openM > slotMinM) {
-          let s = Math.max(slotMinM, openM - 60);
-          let e = Math.min(s + LABEL_DURATION, openM);
+          const s = Math.max(slotMinM, openM - LABEL_DURATION);
+          const e = openM;
           if (e - s >= LABEL_MIN_DURATION) {
             events.push(makeLabelEvent(dateStr, s, e, `${parsed.start} 営業開始`, 'open'));
           }
         }
-        // 終了ラベル: close + 60 min から 30 min 幅。slotMax を越えない/close を下回らないようクランプ
+        // 終了ラベル: close 〜 (close + 30)。slotMax を越えないようクランプ
         if (closeM < slotMaxM) {
-          let sDesired = closeM + 60;
-          let eDesired = sDesired + LABEL_DURATION;
-          let e = Math.min(eDesired, slotMaxM);
-          let s = Math.max(closeM, e - LABEL_DURATION);
+          const s = closeM;
+          const e = Math.min(slotMaxM, closeM + LABEL_DURATION);
           if (e - s >= LABEL_MIN_DURATION) {
             events.push(makeLabelEvent(dateStr, s, e, `${parsed.end} 営業終了`, 'close'));
           }
@@ -243,7 +242,9 @@
     const events = [];
     const slotMin = Config.CALENDAR.SLOT_MIN_TIME.slice(0, 5); // "08:00"
     const slotMax = Config.CALENDAR.SLOT_MAX_TIME.slice(0, 5); // "19:00"
-    const BG_COLOR = '#e2e8f0'; // 控えめなグレー
+    // FullCalendarが背景イベントに opacity をかけるためベース色は濃いめにする
+    // 視覚濃度はCSSの .fc-bg-event.offhours-bg で opacity 調整
+    const BG_COLOR = '#475569';
 
     const cursor = new Date(startDate);
     cursor.setHours(0, 0, 0, 0);
@@ -263,6 +264,7 @@
           end:   `${dateStr}T${slotMax}:00`,
           display: 'background',
           backgroundColor: BG_COLOR,
+          classNames: ['offhours-bg'],
           groupId: 'offhours',
         });
       } else {
@@ -273,6 +275,7 @@
             end:   `${dateStr}T${parsed.start}:00`,
             display: 'background',
             backgroundColor: BG_COLOR,
+            classNames: ['offhours-bg'],
             groupId: 'offhours',
           });
         }
@@ -283,6 +286,7 @@
             end:   `${dateStr}T${slotMax}:00`,
             display: 'background',
             backgroundColor: BG_COLOR,
+            classNames: ['offhours-bg'],
             groupId: 'offhours',
           });
         }
@@ -419,6 +423,15 @@
       const src = fc.getEventSourceById('offhours');
       if (src) src.refetch();
     },
+
+    // タブ切替時に呼ぶ：シフト＋背景を全再取得
+    refreshEvents() {
+      if (!fc) return;
+      fc.refetchEvents();
+    },
+
+    // 初期化済みかどうか（タブ切替時に「初回」と「2回目以降」を区別するため）
+    isInitialized() { return inited; },
 
     bindToolbar(container) {
       const q = (sel) => container.querySelector(sel);

@@ -9,60 +9,10 @@
   const App = window.ShiftApp;
   const { Config, State, Utils, log, err } = App;
 
-  // 従業員マスタ (児発管) のキャッシュ ─── {氏名, 従業員番号} の配列
-  let jihatsukanCache = null;
-  // 全スタッフキャッシュ（カレンダー側のダイアログ用）
+  // 全スタッフキャッシュ（ダイアログ用）
   let allStaffCache = null;
 
   const Api = {
-    // 児発管として選択可能なスタッフ氏名リストを取得
-    async fetchJihatsukanStaff() {
-      if (jihatsukanCache !== null) return jihatsukanCache.map((e) => e.氏名);
-      const query =
-        '就業先 in ("放デイ　ゆるりフォーピース") and 放デイゆるり_資格 in ("児発管") order by 従業員番号 asc';
-      log('児発管スタッフ取得開始', { app: Config.EMPLOYEE_APP_ID, query });
-      try {
-        const res = await kintone.api(
-          kintone.api.url('/k/v1/records', true),
-          'GET',
-          { app: Config.EMPLOYEE_APP_ID, query: query }
-        );
-        jihatsukanCache = res.records
-          .map((r) => ({
-            氏名: r['氏名'] && r['氏名'].value,
-            従業員番号: r['従業員番号'] && r['従業員番号'].value,
-          }))
-          .filter((e) => e.氏名);
-        const names = jihatsukanCache.map((e) => e.氏名);
-        log('児発管スタッフ取得成功', { 件数: names.length, list: names });
-        return names;
-      } catch (e) {
-        err('従業員マスタ取得失敗（App未作成／権限不足／フィールドコード相違の可能性）', e);
-        return [];
-      }
-    },
-
-    // 氏名から従業員番号を引く（キャッシュ参照のみ）
-    getEmployeeNumberByName(name) {
-      if (!jihatsukanCache) return null;
-      const emp = jihatsukanCache.find((e) => e.氏名 === name);
-      return emp ? emp.従業員番号 : null;
-    },
-
-    // アプリ60に児発管シフトレコードを新規作成
-    // ※ 更新・削除は未実装（変更時に古いレコードは残る）
-    async createJihatsukanShift(name) {
-      if (!name) return null;
-      if (!jihatsukanCache) await Api.fetchJihatsukanStaff();
-      const number = Api.getEmployeeNumberByName(name);
-      if (!number) {
-        err('従業員番号が見つかりません（従業員マスタに該当氏名なし）', name);
-        return null;
-      }
-      const record = { '従業員番号': { value: number } };
-      return Api._postShiftRecord(record, { via: 'createJihatsukanShift', name, number });
-    },
-
     // 指定期間分の日付マスタを取得し YYYY-MM-DD キーの map で返す
     // endDate 省略時は startDate から7日間
     async fetchDayMasters(startDate, endDate) {
@@ -146,16 +96,6 @@
       }
     },
 
-    // 資格で絞ったスタッフリストを返す（ダイアログの従業員ドロップダウン用）
-    // 現状は '児発管' のみ特化。他の資格は fetchAllStaff にフォールバック
-    async fetchStaffByQualification(qualification) {
-      if (qualification === '児発管') {
-        if (jihatsukanCache === null) await Api.fetchJihatsukanStaff();
-        return Array.isArray(jihatsukanCache) ? jihatsukanCache : [];
-      }
-      return Api.fetchAllStaff();
-    },
-
     // 全スタッフ取得（就業先=放デイゆるりフォーピースのみ絞込）
     async fetchAllStaff() {
       if (allStaffCache !== null) return allStaffCache;
@@ -182,37 +122,35 @@
       }
     },
 
-    // 週分のシフトを資格で絞り込み、日付→レコード の map で返す
-    // 同日複数ある場合は先頭のレコードのみ採用（警告ログを出す）
-    async fetchShiftsByQualification(startDate, endDate, qualification) {
+    // 週分のシフトを取得し、配置の種類→日付→レコード配列(開始時間昇順) の map にして返す
+    // 例: { '常勤換算': { '2026-04-27': [rec1, rec2, rec3] } }
+    async fetchShiftsGroupedByPlacement(startDate, endDate) {
       const F = Config.SHIFT_FIELDS;
-      const q =
-        `${F.qualification} in ("${qualification}") and ` +
-        `${F.startDate} >= "${Utils.fmtDate(startDate)}" and ${F.startDate} <= "${Utils.fmtDate(endDate)}" ` +
-        `order by ${F.startDate} asc, ${F.startTime} asc limit 500`;
-      log('資格別シフト取得開始', { app: Config.SHIFT_APP_ID, qualification, query: q });
-      try {
-        const res = await kintone.api(
-          kintone.api.url('/k/v1/records', true),
-          'GET',
-          { app: Config.SHIFT_APP_ID, query: q }
-        );
-        const map = {};
-        res.records.forEach((r) => {
-          const d = r[F.startDate] && r[F.startDate].value;
-          if (!d) return;
-          if (map[d]) {
-            App.warn(`同日に${qualification}シフトが複数あり（先頭を採用）`, { date: d });
-            return;
-          }
-          map[d] = r;
+      const records = await Api.fetchShifts(startDate, endDate);
+      const map = {};
+      records.forEach((r) => {
+        const p = r[F.placementType] && r[F.placementType].value;
+        const d = r[F.startDate] && r[F.startDate].value;
+        if (!p || !d) return;
+        if (!map[p]) map[p] = {};
+        if (!map[p][d]) map[p][d] = [];
+        map[p][d].push(r);
+      });
+      // 各日付の配列を開始時間昇順にソート（常勤換算の 1人目→2人目 割当のため）
+      Object.keys(map).forEach((p) => {
+        Object.keys(map[p]).forEach((d) => {
+          map[p][d].sort((a, b) => {
+            const t1 = (a[F.startTime] && a[F.startTime].value) || '';
+            const t2 = (b[F.startTime] && b[F.startTime].value) || '';
+            return t1.localeCompare(t2);
+          });
         });
-        log('資格別シフト取得成功', { 件数: res.records.length, 日数: Object.keys(map).length });
-        return map;
-      } catch (e) {
-        err('資格別シフト取得失敗', e);
-        return {};
-      }
+      });
+      log('配置別グルーピング完了', {
+        placements: Object.keys(map),
+        件数: records.length,
+      });
+      return map;
     },
 
     // アプリ60から期間内のシフトを取得（カレンダー表示用）
@@ -236,12 +174,13 @@
     },
 
     // 汎用シフト作成（ダイアログから使用）
-    // data = { 従業員番号, 開始日付, 開始時間, 終了日付, 終了時間 }
+    // data = { 従業員番号, 配置の種類, 開始日付, 開始時間, 終了日付, 終了時間 }
     // ※ 従業員名・資格はルックアップで自動コピーされるためAPIでは設定しない
     async createShift(data) {
       const F = Config.SHIFT_FIELDS;
       const record = {};
       if (data[F.employeeNumber]) record[F.employeeNumber] = { value: data[F.employeeNumber] };
+      if (data[F.placementType])  record[F.placementType]  = { value: data[F.placementType] };
       if (data[F.startDate])      record[F.startDate]      = { value: data[F.startDate] };
       if (data[F.startTime])      record[F.startTime]      = { value: data[F.startTime] };
       if (data[F.endDate])        record[F.endDate]        = { value: data[F.endDate] };

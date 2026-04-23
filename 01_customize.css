@@ -401,6 +401,11 @@
 .fc .fc-event.shift-marker-open  { border-top: 2px solid #4299e1 !important; }
 .fc .fc-event.shift-marker-close { border-bottom: 2px solid #4299e1 !important; }
 
+/* 営業時間外の背景：FullCalendarの既定 opacity(0.3)より少し濃く視認しやすく */
+.fc .fc-bg-event.offhours-bg {
+  opacity: 0.3 !important;
+}
+
 /* 曜日・祝日の色付け（常勤チェック表と同系統） */
 /* ヘッダー（曜日表示行） */
 .fc .fc-col-header-cell.fc-day-sat {

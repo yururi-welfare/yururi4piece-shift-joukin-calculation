@@ -1,6 +1,6 @@
 /**
  * 放デイシフト - エディタ
- * クリック→ドロップダウン→保存 のインタラクション
+ * 営業パターンセル→ドロップダウン、スタッフセル→モーダル
  * 読み込み順: 5
  */
 (function () {
@@ -17,30 +17,6 @@
     const parsed = Utils.parseHourRange(patternStr);
     if (parsed) return parsed;
     return { start: Config.DEFAULT_SHIFT_TIME.start, end: Config.DEFAULT_SHIFT_TIME.end };
-  }
-
-  // 児発管セルの保存： app60のshiftレコードを削除→作成（役割→資格のマッピングあり）
-  async function saveStaffToShiftApp(role, newVal, dateStr, existingRecordId) {
-    // 既存レコード削除
-    if (existingRecordId) {
-      try { await Api.deleteShift(existingRecordId); }
-      catch (e) { err('既存シフト削除失敗（続行して新規作成）', e); }
-    }
-    if (!newVal) return; // 空にした場合は削除のみで終了
-
-    const number = Api.getEmployeeNumberByName(newVal);
-    if (!number) {
-      err('従業員番号が見つかりません', newVal);
-      throw new Error('従業員番号が見つかりません: ' + newVal);
-    }
-    const { start, end } = defaultTimesForDate(dateStr);
-    await Api.createShift({
-      '従業員番号': number,
-      '開始日付':   dateStr,
-      '開始時間':   start,
-      '終了日付':   dateStr,
-      '終了時間':   end,
-    });
   }
 
   // ── 保存インジケータ ───────────────────────────────
@@ -124,19 +100,12 @@
     sel.addEventListener('keydown', (e) => { if (e.key === 'Escape') exit(); });
   }
 
-  // ── スタッフセル ───────────────────────────────────
+  // ── スタッフセル（全行モーダル経由） ─────────────────
   function bindStaffSelects(root) {
     root.querySelectorAll('td.staff-cell').forEach((td) => {
       td.addEventListener('click', () => {
         if (td.classList.contains('editing')) return;
-        const role = td.dataset.staffRole;
-        const qualification = Config.ROLE_QUALIFICATION && Config.ROLE_QUALIFICATION[role];
-        // 資格マッピングがある役割は カレンダーと同じモーダルを使用
-        if (qualification) {
-          openShiftModalForCell(td, root, role, qualification);
-        } else {
-          enterStaffEditMode(td, root);
-        }
+        openShiftModalForCell(td, root);
       });
     });
   }
@@ -148,25 +117,28 @@
     return new Date(y, m - 1, d, hh, mm, 0);
   }
 
-  // 指定role・qualification のマップを再取得してセル反映
-  async function refreshStaffMap(role, qualification, root) {
+  // 全シフトを再取得して配置別マップに更新→該当セル群を再描画
+  async function refreshPlacementMap(root) {
     const endDate = new Date(State.currentWeekStart);
     endDate.setDate(endDate.getDate() + 6);
-    const fresh = await Api.fetchShiftsByQualification(State.currentWeekStart, endDate, qualification);
-    State.currentShiftMaps = State.currentShiftMaps || {};
-    State.currentShiftMaps[role] = fresh;
-    Render.applyShiftsToStaffCells(root, State.currentShiftMaps);
+    const fresh = await Api.fetchShiftsGroupedByPlacement(State.currentWeekStart, endDate);
+    State.currentShiftMaps = fresh;
+    Render.applyShiftsToStaffCells(root, fresh);
   }
 
   // セルクリック時：既存シフトがあれば詳細モーダル、無ければ登録モーダル
-  function openShiftModalForCell(td, root, role, qualification) {
-    const dateStr  = td.dataset.staffFor;
-    const recordId = td.dataset.recordId || '';
-    const shift = State.currentShiftMaps
-      && State.currentShiftMaps[role]
-      && State.currentShiftMaps[role][dateStr];
+  // セルの data-placement / data-slot-index で対象シフトを特定
+  function openShiftModalForCell(td, root) {
+    const dateStr   = td.dataset.staffFor;
+    const placement = td.dataset.placement;
+    const slotIndex = parseInt(td.dataset.slotIndex || '0', 10);
+    const recordId  = td.dataset.recordId || '';
+    const recs = State.currentShiftMaps
+      && State.currentShiftMaps[placement]
+      && State.currentShiftMaps[placement][dateStr];
+    const shift = recs && recs[slotIndex];
 
-    const onChanged = () => refreshStaffMap(role, qualification, root);
+    const onChanged = () => refreshPlacementMap(root);
 
     if (recordId && shift) {
       App.ShiftDialog.showEdit(shift, onChanged);
@@ -177,95 +149,8 @@
       dateTimeOf(dateStr, sTime),
       dateTimeOf(dateStr, eTime),
       onChanged,
-      { qualification }
+      { placementType: placement }
     );
-  }
-
-  // role ごとに呼び出すfetch関数を変える（拡張時はここにマッピング追加）
-  async function fetchStaffListForRole(role) {
-    switch (role) {
-      case '児発管': return Api.fetchJihatsukanStaff();
-      default: return [];
-    }
-  }
-
-  async function enterStaffEditMode(td, root) {
-    const current = td.dataset.current || '';
-    const dateStr = td.dataset.staffFor;
-    const role = td.dataset.staffRole;
-    const recordId = td.dataset.recordId || '';
-
-    td.classList.add('editing');
-    td.innerHTML = `<span class="staff-display">読み込み中…</span>`;
-
-    const staffList = await fetchStaffListForRole(role);
-    const options = ['', ...staffList]
-      .map((opt) =>
-        `<option value="${opt}" ${opt === current ? 'selected' : ''}>${opt || '未設定'}</option>`
-      ).join('');
-
-    td.innerHTML = `<select class="staff-select">${options}</select>`;
-    const sel = td.querySelector('select');
-    sel.focus();
-    try { sel.showPicker && sel.showPicker(); } catch (_) {}
-
-    let finished = false;
-    const exit = () => {
-      if (finished) return;
-      finished = true;
-      td.classList.remove('editing');
-      // 取消時は保持中のシフトマップから該当セルを再描画して時間表示まで復元
-      if (State.currentShiftMaps) {
-        Render.applyShiftsToStaffCells(root, State.currentShiftMaps);
-      } else {
-        td.innerHTML = `<span class="staff-display ${td.dataset.current ? '' : 'is-empty'}">${td.dataset.current || '未設定'}</span>`;
-      }
-    };
-
-    sel.addEventListener('change', async () => {
-      const newVal = sel.value;
-      if (newVal === current) { exit(); return; }
-
-      log('スタッフ変更', { role, date: dateStr, staff: newVal, recordId });
-      sel.classList.add('is-saving');
-      sel.disabled = true;
-      setIndicator(root, '保存中...', 'saving');
-
-      try {
-        // 役割に対応する資格があれば app60 を一次ソースとして保存
-        const qualification = Config.ROLE_QUALIFICATION && Config.ROLE_QUALIFICATION[role];
-        if (qualification) {
-          await saveStaffToShiftApp(role, newVal, dateStr, recordId);
-          // 該当週の app60 の資格別マップを再取得して反映
-          const endDate = new Date(State.currentWeekStart);
-          endDate.setDate(endDate.getDate() + 6);
-          const fresh = await Api.fetchShiftsByQualification(State.currentWeekStart, endDate, qualification);
-          State.currentShiftMaps = State.currentShiftMaps || {};
-          State.currentShiftMaps[role] = fresh;
-          finished = true;
-          td.classList.remove('editing');
-          Render.applyShiftsToStaffCells(root, State.currentShiftMaps);
-          setIndicator(root, '✓ 保存しました', 'saved');
-        } else {
-          // 未マッピング役割は従来どおり app57 日付マスタに保存
-          await Api.saveDayField(dateStr, { [role]: newVal }, recordId);
-          const fresh = await Api.fetchDayMasters(State.currentWeekStart);
-          State.currentDayMap = fresh;
-          finished = true;
-          td.classList.remove('editing');
-          td.innerHTML = `<span class="staff-display ${newVal ? '' : 'is-empty'}">${newVal || '未設定'}</span>`;
-          Render.applyDayMapToCells(root, fresh);
-          setIndicator(root, '✓ 保存しました', 'saved');
-        }
-      } catch (e) {
-        err('スタッフ保存失敗', e);
-        setIndicator(root, '保存失敗', 'saving');
-        exit();
-      }
-    });
-
-    sel.addEventListener('blur', () => { setTimeout(exit, 150); });
-    sel.addEventListener('keydown', (e) => { if (e.key === 'Escape') exit(); });
   }
 
   App.Editor = {

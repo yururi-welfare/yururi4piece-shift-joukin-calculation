@@ -37,11 +37,26 @@
     return v || '';
   }
 
-  // qualificationが指定されていれば、その資格を持つスタッフのみに絞る
-  async function buildStaffOptions(currentName, qualification) {
-    const staff = qualification
-      ? await Api.fetchStaffByQualification(qualification)
-      : await Api.fetchAllStaff();
+  // 15分刻みの時刻オプションを生成。範囲はカレンダーの SLOT_MIN_TIME〜SLOT_MAX_TIME と一致させる
+  function buildTimeOptions(selectedValue) {
+    const slotMin = Config.CALENDAR.SLOT_MIN_TIME.slice(0, 5); // "08:00"
+    const slotMax = Config.CALENDAR.SLOT_MAX_TIME.slice(0, 5); // "19:00"
+    const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const fmt   = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    const start = toMin(slotMin);
+    const end   = toMin(slotMax);
+    const opts = [];
+    for (let m = start; m <= end; m += 15) {
+      const t = fmt(m);
+      const sel = t === selectedValue ? 'selected' : '';
+      opts.push(`<option value="${t}" ${sel}>${t}</option>`);
+    }
+    return opts.join('');
+  }
+
+  // 全スタッフから選択可能（資格フィルタは廃止、配置の種類で意味付けする方針）
+  async function buildStaffOptions(currentName) {
+    const staff = await Api.fetchAllStaff();
     const opts = ['<option value="">— 選択 —</option>']
       .concat(staff.map((s) => {
         const sel = s.氏名 === currentName ? 'selected' : '';
@@ -68,18 +83,21 @@
 
   const ShiftDialog = {
     // 新規作成
-    // options.qualification: 指定するとその資格のスタッフのみドロップダウンに表示
+    // options.placementType: 配置の種類ドロップダウンの初期値（チェック表セルから渡される）
     async showCreate(defaultStart, defaultEnd, onSaved, options = {}) {
       const startDateVal = toDateStr(defaultStart);
       const startTimeVal = toTimeStr(defaultStart);
       const endDateVal   = toDateStr(defaultEnd);
       const endTimeVal   = toTimeStr(defaultEnd);
 
-      const staffOptions = await buildStaffOptions('', options.qualification);
-      const titleSuffix = options.qualification ? `（${options.qualification}）` : '';
-      const helperMsg = options.qualification
-        ? `※ ${options.qualification}資格のスタッフのみ表示されます`
-        : '※ 資格は従業員マスタから自動取得されます';
+      const staffOptions = await buildStaffOptions('');
+      const titleSuffix = options.placementType ? `（${options.placementType}）` : '';
+      const helperMsg = '※ 資格は従業員マスタから自動取得されます';
+      const placementOptions = ['<option value="">— 選択 —</option>']
+        .concat((Config.PLACEMENT_TYPES || []).map((p) => {
+          const sel = p === options.placementType ? 'selected' : '';
+          return `<option value="${p}" ${sel}>${p}</option>`;
+        })).join('');
 
       const html = `
         <h3>シフトを登録${titleSuffix}</h3>
@@ -88,6 +106,10 @@
           <select class="f-staff">${staffOptions}</select>
           <small style="color:#718096;font-size:12px;margin-top:2px;">${helperMsg}</small>
         </div>
+        <div class="field">
+          <label>配置の種類</label>
+          <select class="f-placement">${placementOptions}</select>
+        </div>
         <div class="row2">
           <div class="field">
             <label>開始日</label>
@@ -95,7 +117,7 @@
           </div>
           <div class="field">
             <label>開始時間</label>
-            <input type="time" class="f-start-time" value="${startTimeVal}" step="900">
+            <select class="f-start-time">${buildTimeOptions(startTimeVal)}</select>
           </div>
         </div>
         <div class="row2">
@@ -105,7 +127,7 @@
           </div>
           <div class="field">
             <label>終了時間</label>
-            <input type="time" class="f-end-time" value="${endTimeVal}" step="900">
+            <select class="f-end-time">${buildTimeOptions(endTimeVal)}</select>
           </div>
         </div>
         <div class="actions">
@@ -121,6 +143,7 @@
         const staffSel = modal.querySelector('.f-staff');
         const name   = staffSel.value;
         const number = staffSel.options[staffSel.selectedIndex]?.dataset.number || '';
+        const placement = modal.querySelector('.f-placement').value;
         const sDate = modal.querySelector('.f-start-date').value;
         const sTime = modal.querySelector('.f-start-time').value;
         const eDate = modal.querySelector('.f-end-date').value;
@@ -137,6 +160,7 @@
 
         const payload = {
           '従業員番号': number,
+          '配置の種類': placement,
           '開始日付':   sDate,
           '開始時間':   sTime,
           '終了日付':   eDate,
@@ -173,11 +197,13 @@
       const eDate  = (record[F.endDate] && record[F.endDate].value) || '';
       const eTime  = (record[F.endTime] && record[F.endTime].value) || '';
       const qualification = readQualification(record);
+      const placement = (record[F.placementType] && record[F.placementType].value) || '';
 
       const html = `
         <h3>シフト詳細</h3>
         <div class="field"><label>従業員</label><div>${name}${number ? `（${number}）` : ''}</div></div>
         <div class="field"><label>資格</label><div>${qualification || '—'}</div></div>
+        <div class="field"><label>配置の種類</label><div>${placement || '—'}</div></div>
         <div class="row2">
           <div class="field"><label>開始</label><div>${sDate} ${sTime}</div></div>
           <div class="field"><label>終了</label><div>${eDate} ${eTime}</div></div>

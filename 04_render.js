@@ -26,27 +26,28 @@
         </div>`;
     },
 
-    // スタッフ用編集セルを生成 (role: 児発管, 常勤専従, etc.)
-    buildStaffCells(days, role) {
+    // スタッフ用編集セルを生成
+    // placement: 配置の種類（'管理者兼児発管' / '常勤専従' / '常勤換算' / '休憩ヘルプ'）
+    // slotIndex: 同一placementで複数枠あるとき(常勤換算)の枠番号(0-2)。単一枠は0でOK
+    buildStaffCells(days, placement, slotIndex = 0) {
       return days.map((d) => {
         const dateStr = fmtDate(d);
-        return `<td class="cell staff-cell ${cellClass(d)}" data-staff-for="${dateStr}" data-staff-role="${role}" data-record-id="" data-current=""><span class="staff-display is-empty">未設定</span></td>`;
+        return `<td class="cell staff-cell ${cellClass(d)}" data-staff-for="${dateStr}" data-placement="${placement}" data-slot-index="${slotIndex}" data-record-id="" data-current=""><span class="staff-display is-empty">未設定</span></td>`;
       }).join('');
     },
 
-    // スタッフ配置セクションの行群
+    // スタッフ配置セクションの行群（行=配置の種類トリガー）
     renderStaffRows(days) {
-      const empty = () => days.map((d) => `<td class="cell ${cellClass(d)}"></td>`).join('');
       return `
-        <tr><td class="row-label" colspan="2">管理者兼\n児発管</td>${Render.buildStaffCells(days, '児発管')}</tr>
-        <tr><td class="row-label" colspan="2">常勤専従</td>${empty()}</tr>
+        <tr><td class="row-label" colspan="2">管理者兼\n児発管</td>${Render.buildStaffCells(days, '管理者兼児発管')}</tr>
+        <tr><td class="row-label" colspan="2">常勤専従</td>${Render.buildStaffCells(days, '常勤専従')}</tr>
         <tr>
           <td class="row-label vertical" rowspan="3">常勤換算1人</td>
-          <td class="row-label">1人目</td>${empty()}
+          <td class="row-label">1人目</td>${Render.buildStaffCells(days, '常勤換算', 0)}
         </tr>
-        <tr><td class="row-label">2人目</td>${empty()}</tr>
-        <tr><td class="row-label"></td>${empty()}</tr>
-        <tr><td class="row-label" colspan="2">休憩</td>${empty()}</tr>`;
+        <tr><td class="row-label">2人目</td>${Render.buildStaffCells(days, '常勤換算', 1)}</tr>
+        <tr><td class="row-label"></td>${Render.buildStaffCells(days, '常勤換算', 2)}</tr>
+        <tr><td class="row-label" colspan="2">休憩</td>${Render.buildStaffCells(days, '休憩ヘルプ')}</tr>`;
     },
 
     // 週テーブル本体
@@ -138,15 +139,17 @@
       // ※ 児発管セル(staff-cell)の描画は applyShiftsToStaffCells に移行
     },
 
-    // 役割ごとのシフトマップ（role → dateStr → app60レコード）を受け取り、該当セルを描画
-    // 例: rolesShiftMap = { '児発管': { '2026-04-27': {...app60レコード...} } }
-    applyShiftsToStaffCells(root, rolesShiftMap) {
+    // 配置別シフトマップ（placement → dateStr → レコード配列） を受け取り該当セルを描画
+    // 例: placementMap = { '常勤換算': { '2026-04-27': [rec1, rec2] } }
+    // セルは data-placement と data-slot-index で自分の取得位置を知る
+    applyShiftsToStaffCells(root, placementMap) {
       root.querySelectorAll('td.staff-cell').forEach((td) => {
         if (td.classList.contains('editing')) return;
         const dateStr = td.dataset.staffFor;
-        const role = td.dataset.staffRole;
-        const roleMap = rolesShiftMap[role];
-        const rec = roleMap && roleMap[dateStr];
+        const placement = td.dataset.placement;
+        const slotIndex = parseInt(td.dataset.slotIndex || '0', 10);
+        const recs = placementMap[placement] && placementMap[placement][dateStr];
+        const rec = recs && recs[slotIndex];
         const name = (rec && rec['従業員名'] && rec['従業員名'].value) || '';
         const recordId = (rec && rec['$id'] && rec['$id'].value) || '';
         td.dataset.current = name;
