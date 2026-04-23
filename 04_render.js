@@ -162,10 +162,12 @@
     // ※ HTMLは1行にまとめる。親tdの white-space: pre-line が効くと改行がテキスト化され中央寄せが崩れるため
     buildStaffCellInner(rec) {
       if (!rec) return '<span class="staff-display is-empty"></span>';
-      const name  = (rec['従業員名'] && rec['従業員名'].value) || '';
-      const sTime = (rec['開始時間'] && rec['開始時間'].value) || '';
-      const eTime = (rec['終了時間'] && rec['終了時間'].value) || '';
-      const hours = diffHoursDecimal(sTime, eTime);
+      const name   = (rec['従業員名']     && rec['従業員名'].value)     || '';
+      const sTime  = (rec['開始時間']     && rec['開始時間'].value)     || '';
+      const eTime  = (rec['終了時間']     && rec['終了時間'].value)     || '';
+      const bsTime = (rec['休憩開始時間'] && rec['休憩開始時間'].value) || '';
+      const beTime = (rec['休憩終了時間'] && rec['休憩終了時間'].value) || '';
+      const hours = actualWorkHours(sTime, eTime, bsTime, beTime);
       const timeLine = (sTime && eTime)
         ? `<div class="staff-time">${sTime} ~ ${eTime}${hours != null ? ` <span class="staff-hours">( ${hours} )</span>` : ''}</div>`
         : '';
@@ -173,17 +175,21 @@
     },
   };
 
-  // "10:00"〜"16:30" の差を小数時間で返す（例: 6, 6.5, 6.25）。パース失敗時null
-  function diffHoursDecimal(startTime, endTime) {
+  // 実働時間を小数時間で返す（休憩時間を差し引く）。例: 10:00-17:00 / 休憩45分 → 6.25
+  // パース失敗・負値時は null
+  function actualWorkHours(startTime, endTime, breakStart, breakEnd) {
     const parse = (s) => {
       const m = String(s || '').match(/(\d{1,2}):(\d{2})/);
       return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
     };
     const s = parse(startTime), e = parse(endTime);
     if (s == null || e == null) return null;
-    const h = (e - s) / 60;
-    // 小数2桁に丸め、末尾の .0 / .00 は削除
-    return Math.round(h * 100) / 100;
+    let workMin = e - s;
+    const bs = parse(breakStart), be = parse(breakEnd);
+    if (bs != null && be != null && be > bs) workMin -= (be - bs);
+    if (workMin <= 0) return null;
+    // 小数2桁に丸め（6.25 は 6.25、6 は 6、6.5 は 6.5 として表示）
+    return Math.round((workMin / 60) * 100) / 100;
   }
 
   App.Render = Render;

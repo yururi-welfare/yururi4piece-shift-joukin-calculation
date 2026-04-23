@@ -28,13 +28,19 @@
       log('月間時間集計 開始', { year, month: month + 1 });
 
       const p = Api.fetchShifts(start, end).then((records) => {
-        const byNum = {}; // number → totalMinutes
+        const byNum = {}; // number → totalMinutes（実働: 休憩時間を差し引き）
         records.forEach((r) => {
           const num = r['従業員番号'] && r['従業員番号'].value;
           const st  = r['開始時間']   && r['開始時間'].value;
           const et  = r['終了時間']   && r['終了時間'].value;
           if (!num || !st || !et) return;
-          const diff = toMin(et) - toMin(st);
+          let diff = toMin(et) - toMin(st);
+          const bs = r['休憩開始時間'] && r['休憩開始時間'].value;
+          const be = r['休憩終了時間'] && r['休憩終了時間'].value;
+          if (bs && be) {
+            const breakMin = toMin(be) - toMin(bs);
+            if (breakMin > 0) diff -= breakMin;
+          }
           if (diff <= 0) return;
           byNum[num] = (byNum[num] || 0) + diff;
         });
