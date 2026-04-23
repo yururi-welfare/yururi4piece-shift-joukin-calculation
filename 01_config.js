@@ -16,7 +16,8 @@
     ROOT_ID: 'shift-root',         // カスタマイズビューのdiv ID
     DAY_MASTER_APP_ID: 57,         // 日付マスタアプリ
     EMPLOYEE_APP_ID: 5,            // 従業員マスタアプリ
-    SHIFT_APP_ID: 60,              // シフト登録アプリ（児発管シフト自動作成先）
+    SHIFT_APP_ID: 60,              // シフト登録アプリ（現場・確定シフト）
+    SIMULATION_APP_ID: 62,         // シミュレーション用シフトアプリ（app60のコピー）
     TRACKED_FIELDS: ['営業パターン'],  // 保存時に追跡する日付マスタ(app57)のフィールド
     // スタッフセル保存時、営業パターン未設定時に使うデフォルト勤務時間
     DEFAULT_SHIFT_TIME: { start: '10:00', end: '18:00' },

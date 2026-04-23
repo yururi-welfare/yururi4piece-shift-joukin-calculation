@@ -1,13 +1,14 @@
 /**
  * 放デイシフト - 月間勤務時間集計
- * app60から指定月のシフトを取得し、従業員番号ごとに合計時間を算出
+ * シミュレーション(app62)から指定月のシフトを取得し、従業員番号ごとに合計時間を算出
+ * チェック表と一致させるため参照先は Config.SIMULATION_APP_ID
  * 読み込み順: 11
  */
 (function () {
   'use strict';
 
   const App = window.ShiftApp;
-  const { Api, log, err } = App;
+  const { Api, Config, log, err } = App;
 
   const MonthlyHours = {
     _cache:   {},   // key='YYYY-M' → { persons:{num:h}, placements:{type:h} }
@@ -27,7 +28,7 @@
       const end   = new Date(year, month + 1, 0);
       log('月間時間集計 開始', { year, month: month + 1 });
 
-      const p = Api.fetchShifts(start, end).then((records) => {
+      const p = Api.fetchShifts(start, end, Config.SIMULATION_APP_ID).then((records) => {
         const byNum = {};       // number → totalMinutes（実働: 休憩差し引き）
         const byPlacement = {}; // placement → totalMinutes
         records.forEach((r) => {

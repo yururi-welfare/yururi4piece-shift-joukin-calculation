@@ -12,6 +12,22 @@
   let fc = null;              // FullCalendar インスタンス
   let inited = false;
   let suppressDateChange = false;  // 外部からgotoDateで動かした時の自己通知抑止
+  let toastTimer = null;
+
+  // 閲覧専用トースト（画面中央下に2秒表示）
+  function showReadonlyToast() {
+    let el = document.getElementById('shift-readonly-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'shift-readonly-toast';
+      el.className = 'shift-readonly-toast';
+      el.textContent = '🔒 カレンダータブは閲覧専用です。編集はシミュレーションタブから行ってください。';
+      document.body.appendChild(el);
+    }
+    el.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2200);
+  }
 
   // ラベル: アクティブビューボタンの更新
   function setActiveViewBtn(container, viewName) {
@@ -101,38 +117,6 @@
   function toTimeStr(d) {
     return String(d.getHours()).padStart(2, '0') + ':' +
       String(d.getMinutes()).padStart(2, '0');
-  }
-
-  // イベントのドラッグ移動／リサイズで呼ばれる共通処理
-  async function handleEventTimeChange(info, reason) {
-    const ev = info.event;
-    const start = ev.start;
-    const end   = ev.end || new Date(start.getTime() + 15 * 60 * 1000);
-    const recordId = ev.id;
-    if (!recordId || !start) { info.revert(); return; }
-
-    const payload = {
-      '開始日付': toDateStr(start),
-      '開始時間': toTimeStr(start),
-      '終了日付': toDateStr(end),
-      '終了時間': toTimeStr(end),
-    };
-    log(`${reason}による時間変更`, { id: recordId, payload });
-
-    try {
-      await Api.updateShift(recordId, payload);
-      // 成功時は extendedProps.record の値も更新（編集ダイアログで新値が見えるように）
-      const rec = ev.extendedProps.record;
-      if (rec) {
-        rec['開始日付'] = { value: payload['開始日付'] };
-        rec['開始時間'] = { value: payload['開始時間'] };
-        rec['終了日付'] = { value: payload['終了日付'] };
-        rec['終了時間'] = { value: payload['終了時間'] };
-      }
-    } catch (e) {
-      info.revert();
-      alert(`${reason}での保存に失敗しました。\n詳細はコンソールを確認してください。`);
-    }
   }
 
   // イベントソース：FullCalendarが求める期間を受け取り、app60から取得
@@ -319,10 +303,10 @@
         firstDay:      0,      // 日曜始まり
         allDaySlot:    false,
         headerToolbar: false,  // カスタムツールバー使用
-        selectable:    true,
-        editable:      true,   // ドラッグ移動・リサイズで時間変更
-        eventDurationEditable: true,
-        eventStartEditable:    true,
+        selectable:    false,  // 読み取り専用: 空き枠クリックでの新規登録を無効化
+        editable:      false,  // 読み取り専用: ドラッグ移動・リサイズを無効化
+        eventDurationEditable: false,
+        eventStartEditable:    false,
         nowIndicator:  true,
         height:        'auto',
         expandRows:    false,
@@ -372,25 +356,11 @@
           if (p.placement != null)      info.el.dataset.placement      = p.placement || 'none';
           if (p.employeeNumber != null) info.el.dataset.employeeNumber = p.employeeNumber || 'none';
         },
-        select: (info) => {
-          App.ShiftDialog.showCreate(info.start, info.end, () => {
-            fc.refetchEvents();
-          });
-          fc.unselect();
-        },
+        // 読み取り専用: select/eventDrop/eventResize は無効化
+        // eventClick は残し、クリック時に案内トーストを表示
         eventClick: (info) => {
           if (info.event.extendedProps.isMarker) return;
-          App.ShiftDialog.showEdit(info.event.extendedProps.record, () => {
-            fc.refetchEvents();
-          });
-        },
-        eventDrop: (info) => {
-          if (info.event.extendedProps.isMarker) { info.revert(); return; }
-          handleEventTimeChange(info, 'ドラッグ移動');
-        },
-        eventResize: (info) => {
-          if (info.event.extendedProps.isMarker) { info.revert(); return; }
-          handleEventTimeChange(info, 'リサイズ');
+          showReadonlyToast();
         },
       });
 
@@ -464,6 +434,7 @@
             <span class="date-title"></span>
           </div>
           <div class="nav-group">
+            <span class="readonly-badge" title="編集はシミュレーションタブから">🔒 閲覧専用</span>
             <button class="view-btn" data-view="timeGridDay">日</button>
             <button class="view-btn" data-view="timeGridWeek">週</button>
             <button class="view-btn" data-view="dayGridMonth">月</button>

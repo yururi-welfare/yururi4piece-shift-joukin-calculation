@@ -42,12 +42,14 @@
         <tr><td class="row-label" colspan="2">管理者兼\n児発管</td>${Render.buildStaffCells(days, '管理者兼児発管')}</tr>
         <tr><td class="row-label" colspan="2">常勤専従</td>${Render.buildStaffCells(days, '常勤専従')}</tr>
         <tr>
-          <td class="row-label vertical" rowspan="3">常勤換算1人</td>
-          <td class="row-label">1人目</td>${Render.buildStaffCells(days, '常勤換算', 0)}
+          <td class="row-label vertical" rowspan="6">常勤換算累積</td>
+          <td class="row-label"></td>${Render.buildStaffCells(days, '常勤換算', 0)}
         </tr>
-        <tr><td class="row-label">2人目</td>${Render.buildStaffCells(days, '常勤換算', 1)}</tr>
+        <tr><td class="row-label"></td>${Render.buildStaffCells(days, '常勤換算', 1)}</tr>
         <tr><td class="row-label"></td>${Render.buildStaffCells(days, '常勤換算', 2)}</tr>
-        <tr><td class="row-label" colspan="2">休憩</td>${Render.buildStaffCells(days, '休憩ヘルプ')}</tr>`;
+        <tr><td class="row-label"></td>${Render.buildStaffCells(days, '常勤換算', 3)}</tr>
+        <tr><td class="row-label"></td>${Render.buildStaffCells(days, '常勤換算', 4)}</tr>
+        <tr><td class="row-label"></td>${Render.buildStaffCells(days, '常勤換算', 5)}</tr>`;
     },
 
     // 週テーブル本体

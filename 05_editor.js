@@ -118,10 +118,13 @@
   }
 
   // 全シフトを再取得して配置別マップに更新→該当セル群を再描画
+  // ※ チェック表はシミュレーション(app62)を参照
   async function refreshPlacementMap(root) {
     const endDate = new Date(State.currentWeekStart);
     endDate.setDate(endDate.getDate() + 6);
-    const fresh = await Api.fetchShiftsGroupedByPlacement(State.currentWeekStart, endDate);
+    const fresh = await Api.fetchShiftsGroupedByPlacement(
+      State.currentWeekStart, endDate, Config.SIMULATION_APP_ID
+    );
     State.currentShiftMaps = fresh;
     Render.applyShiftsToStaffCells(root, fresh);
   }
@@ -141,7 +144,7 @@
     const onChanged = () => refreshPlacementMap(root);
 
     if (recordId && shift) {
-      App.ShiftDialog.showEdit(shift, onChanged);
+      App.ShiftDialog.showEdit(shift, onChanged, { appId: Config.SIMULATION_APP_ID });
       return;
     }
     const { start: sTime, end: eTime } = defaultTimesForDate(dateStr);
@@ -149,7 +152,7 @@
       dateTimeOf(dateStr, sTime),
       dateTimeOf(dateStr, eTime),
       onChanged,
-      { placementType: placement }
+      { placementType: placement, appId: Config.SIMULATION_APP_ID }
     );
   }
 

@@ -114,7 +114,9 @@
   const ShiftDialog = {
     // 新規作成
     // options.placementType: 配置の種類ドロップダウンの初期値（チェック表セルから渡される）
+    // options.appId: 保存先アプリID（省略時はConfig.SHIFT_APP_ID。シミュレーションタブからはSIMULATION_APP_ID）
     async showCreate(defaultStart, defaultEnd, onSaved, options = {}) {
+      const appId = options.appId;
       const startDateVal = toDateStr(defaultStart);
       const startTimeVal = toTimeStr(defaultStart);
       const endDateVal   = toDateStr(defaultEnd);
@@ -279,7 +281,7 @@
         log('ダイアログ保存ボタン押下', { name, payload });
 
         try {
-          await Api.createShift(payload);
+          await Api.createShift(payload, appId);
           log('ダイアログ保存成功');
           removeModal();
           onSaved && onSaved();
@@ -299,7 +301,9 @@
 
     // 既存レコードの編集・削除
     // 従業員・配置の種類・日時・休憩すべて変更可。保存は Api.updateShift
-    async showEdit(record, onChanged) {
+    // options.appId: 保存先アプリID（省略時はConfig.SHIFT_APP_ID）
+    async showEdit(record, onChanged, options = {}) {
+      const appId = options.appId;
       const F = Config.SHIFT_FIELDS;
       const recordId = record.$id.value;
       const name   = (record[F.employeeName] && record[F.employeeName].value) || '';
@@ -440,7 +444,7 @@
       modal.querySelector('.btn-delete').onclick = async () => {
         if (!confirm('このシフトを削除しますか？')) return;
         try {
-          await Api.deleteShift(recordId);
+          await Api.deleteShift(recordId, appId);
           removeModal();
           onChanged && onChanged();
         } catch (e) {
@@ -484,7 +488,7 @@
         log('編集ダイアログ保存ボタン押下', { recordId, payload });
 
         try {
-          await Api.updateShift(recordId, payload);
+          await Api.updateShift(recordId, payload, appId);
           log('編集ダイアログ保存成功');
           removeModal();
           onChanged && onChanged();

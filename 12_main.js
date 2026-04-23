@@ -19,6 +19,7 @@
  *  13. 10_legend.js
  *  14. 11_monthly_hours.js
  *  15. 12_main.js
+ *  16. 13_simulation.js
  *   CSS: 01_customize.css
  */
 (function () {
@@ -62,9 +63,11 @@
           <div class="shift-tabs" role="tablist">
             <button class="shift-tab active" data-tab="checklist">常勤チェック表</button>
             <button class="shift-tab" data-tab="calendar">カレンダー</button>
+            <button class="shift-tab" data-tab="simulation">シミュレーション</button>
           </div>
           <div class="shift-panel active" data-panel="checklist" id="panel-checklist"></div>
           <div class="shift-panel" data-panel="calendar" id="panel-calendar"></div>
+          <div class="shift-panel" data-panel="simulation" id="panel-simulation"></div>
         </div>
       </div>`;
   }
@@ -86,7 +89,7 @@
 
     const [dayMap, placementMap] = await Promise.all([
       Api.fetchDayMasters(State.currentWeekStart),
-      Api.fetchShiftsGroupedByPlacement(State.currentWeekStart, endDate),
+      Api.fetchShiftsGroupedByPlacement(State.currentWeekStart, endDate, Config.SIMULATION_APP_ID),
     ]);
     State.currentDayMap = dayMap;
     State.currentShiftMaps = placementMap;
@@ -131,6 +134,15 @@
     Calendar.bindToolbar(panel);
   }
 
+  // ── シミュレーションパネル準備（HTMLだけ先に差し込み、FC初期化はタブ初回切替時）
+  function prepareSimulationPanel(root) {
+    const Sim = App.Simulation;
+    if (!Sim) return;
+    const panel = root.querySelector('#panel-simulation');
+    panel.innerHTML = Sim.buildPanelHtml();
+    Sim.bindToolbar(panel);
+  }
+
   // ── タブ切替
   function bindTabs(root) {
     const tabs = root.querySelectorAll('.shift-tab');
@@ -148,6 +160,15 @@
           Calendar.gotoDate(State.currentWeekStart);
           Calendar.onShow();
           if (wasInited) Calendar.refreshEvents();
+        } else if (key === 'simulation') {
+          const Sim = App.Simulation;
+          if (!Sim) { err('Simulation モジュール未ロード'); return; }
+          const panel = root.querySelector('#panel-simulation');
+          const wasInited = Sim.isInitialized && Sim.isInitialized();
+          await Sim.initIfNeeded(panel, State.currentWeekStart);
+          Sim.gotoDate(State.currentWeekStart);
+          Sim.onShow();
+          if (wasInited) Sim.refreshEvents();
         } else if (key === 'checklist') {
           renderChecklistPanel(root).catch((e) => err('再描画失敗', e));
         }
@@ -232,6 +253,7 @@
     root.innerHTML = buildShell();
     bindTabs(root);
     prepareCalendarPanel(root);
+    prepareSimulationPanel(root);
     bindCalendarToChecklist(root);
     renderChecklistPanel(root).catch((e) => err('描画失敗', e));
     initSidebar(root).catch((e) => err('サイドバー初期化失敗', e));

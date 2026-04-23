@@ -606,6 +606,59 @@
 }
 
 #fc-calendar { min-height: 520px; }
+#sim-calendar { min-height: 520px; }
+
+/* カレンダータブ: 閲覧専用バッジ */
+.fc-toolbar-row .readonly-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  margin-right: 8px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 閲覧専用トースト（画面中央下） */
+.shift-readonly-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(45, 55, 72, 0.95);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 9999;
+}
+.shift-readonly-toast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* シミュレーションタブ: 取り込みボタン（警告色） */
+.btn-sim-import {
+  background: #e53e3e;
+  color: #fff;
+  border: 1px solid #c53030;
+  padding: 4px 12px;
+  margin-left: 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-sim-import:hover:not(:disabled) { background: #c53030; border-color: #9b2c2c; }
+.btn-sim-import:disabled { opacity: 0.6; cursor: wait; }
 
 /* FullCalendar イベント上書き（フラット風） */
 .fc .fc-event {
