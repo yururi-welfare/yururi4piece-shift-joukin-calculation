@@ -562,13 +562,6 @@
 /* ==============================================================
    カレンダー（FullCalendar）
    ============================================================== */
-#fc-calendar-wrap {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 12px;
-  min-height: 600px;
-}
 .fc-toolbar-row {
   display: flex;
   align-items: center;
@@ -612,7 +605,7 @@
   color: #1a202c;
 }
 
-#fc-calendar { min-height: 550px; }
+#fc-calendar { min-height: 520px; }
 
 /* FullCalendar イベント上書き（フラット風） */
 .fc .fc-event {
@@ -623,10 +616,87 @@
   cursor: pointer;
 }
 
-/* スロット高さ（15分スロット1つあたり）— 居宅カレンダーと統一(10px) */
-/* FC v6 のラベル rowspan ロジックに任せるため、レーン高さのみ指定 */
-.fc .fc-timegrid-slot { height: 10px !important; }
-.fc .fc-timegrid-slot-label-cushion { font-size: 11px; }
+/* ==============================================================
+   タイムグリッド — 居宅カレンダーのスロット設計を踏襲（スクロール最小化）
+   slot 11px × 44スロット(8:00〜19:00, 15分刻み) = 484px に収める
+   ============================================================== */
+
+/* tr単位で高さを強制（td の min/max-height を無視するブラウザ対策） */
+.fc-timegrid-slots tr,
+.fc-timegrid table tr {
+  height: 11px !important;
+}
+
+/* すべてのスロット系セルを11px固定。
+   ※ line-height を11pxにすることで「内容無し」セルの行ボックスも11pxに圧縮される
+   （td の height は最低値扱いなので、内部の行ボックスが大きいと膨らむため） */
+.fc-timegrid-slot,
+.fc-timegrid-slot-lane,
+.fc-timegrid-slot-label,
+.fc-timegrid td[data-time] {
+  height: 11px !important;
+  min-height: 11px !important;
+  max-height: 11px !important;
+  line-height: 11px !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
+}
+
+/* ラベル内部のframe/cushionの最小高さ・余白も潰す */
+.fc-timegrid-slot-label-frame,
+.fc-timegrid-slot-label-cushion {
+  min-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* rowspan(=1時間ラベル)のセルだけは44px(4スロット分)使ってテキスト表示。
+   line-height/font-sizeも復活させてテキストを見える状態に。 */
+td[rowspan].fc-timegrid-slot-label {
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  line-height: 1 !important;
+}
+td[rowspan] .fc-timegrid-slot-label-frame {
+  height: 100% !important;
+}
+td[rowspan] .fc-timegrid-slot-label-cushion {
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  padding-right: 6px !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+}
+
+/* 時間軸（左側時刻列）を固定幅にして横スペースを節約
+   FC v6 では axis ではなく slot-label に対しても width 指定が必要 */
+.fc-timegrid-axis,
+.fc-timegrid-slot-label,
+.fc-timegrid-slot.fc-timegrid-slot-label {
+  width: 60px !important;
+  min-width: 60px !important;
+  max-width: 60px !important;
+  padding: 0 !important;
+  border-right: 2px solid #ddd !important;
+  background: #fafafa !important;
+}
+.fc-timegrid-axis-frame { justify-content: flex-end !important; }
+
+/* スロット境界線：1時間ごと(4n+1行)のみ表示で視覚を軽くする */
+.fc-timegrid-slot,
+.fc-timegrid-slots td,
+.fc-timegrid-slot-minor,
+.fc-timegrid-slot-major { border-top: none !important; }
+.fc-timegrid-slots tr:nth-child(4n+1) td { border-top: 1px solid #ccc !important; }
+.fc-timegrid-slots tr:first-child td { border-top: none !important; }
+
+/* タイムグリッド本体の幅を100%に固定（横スクロール防止） */
+.fc-timegrid-body,
+.fc-timegrid-slots,
+.fc-timegrid-cols { width: 100% !important; }
 
 /* 営業開始/終了マーカー（背景・枠あり、文字は黒、非インタラクティブ） */
 /* 10pxスロット = 30分マーカー20px 内に収めるため余白・文字サイズを抑える */

@@ -42,16 +42,6 @@
     }
   }
 
-  // 資格フィールドの値（単一/複数選択どちらでも対応）を文字列で返す
-  function readQualification(rec) {
-    const F = Config.SHIFT_FIELDS;
-    const field = rec[F.qualification];
-    if (!field) return '';
-    const v = field.value;
-    if (Array.isArray(v)) return v.join(' / ');
-    return v || '';
-  }
-
   // 資格配列（複数選択の場合に対応）
   function readQualificationList(rec) {
     const F = Config.SHIFT_FIELDS;
@@ -77,8 +67,6 @@
     const qualStr  = qualList.join(' / ');
     const title = qualStr ? `${name}（${qualStr}）` : name;
     const color = qualificationColor(qualList);
-    // 凡例フィルタ用キー（未設定は "none"）
-    const qualKey = qualList[0] || 'その他';
 
     return {
       id: rec.$id.value,
@@ -90,7 +78,6 @@
       extendedProps: {
         record: rec,
         placement: placement,
-        qualification: qualKey,
         employeeNumber: empNum,
       },
     };
@@ -321,13 +308,14 @@
       const calEl = container.querySelector('#fc-calendar');
 
       fc = new FullCalendar.Calendar(calEl, {
-        locale:        Config.CALENDAR.LOCALE,
-        initialView:   Config.CALENDAR.INITIAL_VIEW,
-        initialDate:   initialDate || undefined,
-        slotMinTime:   Config.CALENDAR.SLOT_MIN_TIME,
-        slotMaxTime:   Config.CALENDAR.SLOT_MAX_TIME,
-        slotDuration:  Config.CALENDAR.SLOT_DURATION,
-        snapDuration:  Config.CALENDAR.SNAP_DURATION,
+        locale:            Config.CALENDAR.LOCALE,
+        initialView:       Config.CALENDAR.INITIAL_VIEW,
+        initialDate:       initialDate || undefined,
+        slotMinTime:       Config.CALENDAR.SLOT_MIN_TIME,
+        slotMaxTime:       Config.CALENDAR.SLOT_MAX_TIME,
+        slotDuration:      Config.CALENDAR.SLOT_DURATION,
+        snapDuration:      Config.CALENDAR.SNAP_DURATION,
+        slotLabelInterval: Config.CALENDAR.SLOT_LABEL_INTERVAL,
         firstDay:      0,      // 日曜始まり
         allDaySlot:    false,
         headerToolbar: false,  // カスタムツールバー使用
@@ -382,7 +370,6 @@
           const p = info.event.extendedProps || {};
           if (p.isMarker) return;
           if (p.placement != null)      info.el.dataset.placement      = p.placement || 'none';
-          if (p.qualification != null)  info.el.dataset.qualification  = p.qualification || 'その他';
           if (p.employeeNumber != null) info.el.dataset.employeeNumber = p.employeeNumber || 'none';
         },
         select: (info) => {

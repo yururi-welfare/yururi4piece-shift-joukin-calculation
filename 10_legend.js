@@ -1,5 +1,5 @@
 /**
- * 放デイシフト - 凡例（配置の種類・資格・スタッフ個人フィルタ）
+ * 放デイシフト - 凡例（配置の種類・スタッフ個人フィルタ）
  * localStorageで状態永続化。フィルタはFCタブのみ効く（チェック表は全量表示）
  * 読み込み順: 10
  */
@@ -13,7 +13,6 @@
   const Legend = {
     state: {
       placement:     {},            // { [name]: boolean }
-      qualification: {},            // { [name]: boolean }
       persons:       {},            // { [employeeNumber]: boolean }
       deactivatedPersons: {},       // 明示的にOFFにした番号
     },
@@ -27,7 +26,6 @@
         const s = JSON.parse(raw);
         if (s && typeof s === 'object') {
           Legend.state.placement          = s.placement          || {};
-          Legend.state.qualification      = s.qualification      || {};
           Legend.state.persons            = s.persons            || {};
           Legend.state.deactivatedPersons = s.deactivatedPersons || {};
         }
@@ -47,12 +45,9 @@
     async init(container) {
       Legend.loadState();
 
-      // 配置・資格は固定リスト。未設定キーは true(表示)で初期化
+      // 配置は固定リスト。未設定キーは true(表示)で初期化
       Object.keys(Config.LEGEND_COLORS.placement).forEach((k) => {
         if (!(k in Legend.state.placement)) Legend.state.placement[k] = true;
-      });
-      Object.keys(Config.LEGEND_COLORS.qualification).forEach((k) => {
-        if (!(k in Legend.state.qualification)) Legend.state.qualification[k] = true;
       });
 
       Legend._allStaff = await Api.fetchAllStaff();
@@ -72,10 +67,9 @@
       if (!root) return;
 
       const placementHtml = Legend._buildPlacementSection();
-      const qualHtml      = Legend._buildQualificationSection();
       const personsHtml   = Legend._buildPersonsSection();
 
-      root.innerHTML = placementHtml + qualHtml + personsHtml;
+      root.innerHTML = placementHtml + personsHtml;
       Legend._bindEvents(root);
       Legend.applyFilter();
     },
@@ -94,24 +88,6 @@
       return `
         <div class="legend-block">
           <div class="legend-block-title">配置の種類</div>
-          ${items}
-        </div>`;
-    },
-
-    _buildQualificationSection() {
-      const colors = Config.LEGEND_COLORS.qualification;
-      const items = Object.entries(colors).map(([name, color]) => {
-        const checked = Legend.state.qualification[name] ? 'checked' : '';
-        return `
-          <label class="legend-item">
-            <input type="checkbox" class="legend-cb" data-kind="qualification" data-key="${name}" ${checked}>
-            <span class="legend-color" style="background:${color}"></span>
-            <span class="legend-name">${name}</span>
-          </label>`;
-      }).join('');
-      return `
-        <div class="legend-block">
-          <div class="legend-block-title">資格</div>
           ${items}
         </div>`;
     },
@@ -150,7 +126,6 @@
           const key  = cb.dataset.key;
           const on   = cb.checked;
           if (kind === 'placement')     Legend.state.placement[key] = on;
-          if (kind === 'qualification') Legend.state.qualification[key] = on;
           if (kind === 'person') {
             Legend.state.persons[key] = on;
             if (on) delete Legend.state.deactivatedPersons[key];
@@ -192,10 +167,6 @@
       // 配置: OFFのものを隠す
       Object.entries(Legend.state.placement).forEach(([k, v]) => {
         if (!v) hide.push(`.fc-event[data-placement="${cssAttrEscape(k)}"]`);
-      });
-      // 資格: OFFのものを隠す
-      Object.entries(Legend.state.qualification).forEach(([k, v]) => {
-        if (!v) hide.push(`.fc-event[data-qualification="${cssAttrEscape(k)}"]`);
       });
       // 個人: OFFのものを隠す
       Object.entries(Legend.state.persons).forEach(([num, v]) => {

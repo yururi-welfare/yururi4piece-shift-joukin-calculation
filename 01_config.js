@@ -41,12 +41,13 @@
     PLACEMENT_TYPES: ['管理者兼児発管', '常勤専従', '常勤換算', '休憩ヘルプ'],
     // FullCalendar 設定
     CALENDAR: {
-      LOCALE:         'ja',
-      INITIAL_VIEW:   'timeGridWeek',
-      SLOT_MIN_TIME:  '08:00:00',
-      SLOT_MAX_TIME:  '19:00:00',
-      SLOT_DURATION:  '00:15:00',
-      SNAP_DURATION:  '00:15:00',
+      LOCALE:             'ja',
+      INITIAL_VIEW:       'timeGridWeek',
+      SLOT_MIN_TIME:      '08:00:00',
+      SLOT_MAX_TIME:      '19:00:00',
+      SLOT_DURATION:      '00:15:00',
+      SNAP_DURATION:      '00:15:00',
+      SLOT_LABEL_INTERVAL: '01:00:00', // 1時間ごとにラベル表示（居宅準拠）
     },
     // サイドバー
     SIDEBAR: {
@@ -54,19 +55,13 @@
       STORAGE_OPEN_KEY:   'hodeiShiftSidebarOpen',
       STORAGE_LEGEND_KEY: 'hodeiShiftLegendState',
     },
-    // 凡例色（配置の種類・資格）
+    // 凡例色（配置の種類）
     LEGEND_COLORS: {
       placement: {
         '管理者兼児発管': '#4c6ef5',
         '常勤専従':       '#38a169',
         '常勤換算':       '#ed8936',
         '休憩ヘルプ':     '#718096',
-      },
-      qualification: {
-        '児発管':  '#4c6ef5',
-        '常勤':    '#38a169',
-        '非常勤':  '#ed8936',
-        'その他':  '#a0aec0',
       },
     },
   };
