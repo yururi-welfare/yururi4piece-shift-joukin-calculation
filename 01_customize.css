@@ -571,6 +571,23 @@
 /* ==============================================================
    タブバー（居宅カレンダー風）
    ============================================================== */
+.shift-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.shift-tabs-row .shift-tabs { margin-bottom: 0; border-bottom: none; }
+.shift-tabs-row .shift-nav { margin-bottom: 0; }
+.shift-tabs-row .shift-nav .saving-indicator { margin-left: 8px; }
+.shift-tabs-row .week-label {
+  display: inline-block;
+  min-width: 260px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 .shift-tabs {
   display: flex;
   margin-bottom: 16px;

@@ -449,12 +449,7 @@
     isInitialized() { return inited; },
 
     bindToolbar(container) {
-      const q = (sel) => container.querySelector(sel);
-
-      q('.btn-prev')  && (q('.btn-prev').onclick  = () => { fc && fc.prev();  });
-      q('.btn-next')  && (q('.btn-next').onclick  = () => { fc && fc.next();  });
-      q('.btn-today') && (q('.btn-today').onclick = () => { fc && fc.today(); });
-
+      // ページ送り（前/次/今日）は共通ナビ(タブ右隣)に集約。ここではビュー切替のみ。
       container.querySelectorAll('.view-btn').forEach((btn) => {
         btn.onclick = () => {
           if (!fc) return;
@@ -465,13 +460,11 @@
     },
 
     // パネルのHTML（空の状態）
+    // ページ送りは共通ナビ（タブ右隣）で行うため、ここではタイトル・ビュー切替のみ
     buildPanelHtml() {
       return `
         <div class="fc-toolbar-row">
           <div class="nav-group">
-            <button class="btn-prev">◀</button>
-            <button class="btn-today">今日</button>
-            <button class="btn-next">▶</button>
             <span class="date-title"></span>
           </div>
           <div class="nav-group">

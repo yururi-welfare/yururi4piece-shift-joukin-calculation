@@ -60,10 +60,13 @@
         ${Sidebar.buildHtml()}
         <div class="shift-main">
           ${Sidebar.buildToggleHtml()}
-          <div class="shift-tabs" role="tablist">
-            <button class="shift-tab active" data-tab="checklist">常勤チェック表</button>
-            <button class="shift-tab" data-tab="calendar">カレンダー</button>
-            <button class="shift-tab" data-tab="simulation">シミュレーション</button>
+          <div class="shift-tabs-row">
+            <div class="shift-tabs" role="tablist">
+              <button class="shift-tab active" data-tab="checklist">常勤チェック表</button>
+              <button class="shift-tab" data-tab="calendar">現場シフト</button>
+              <button class="shift-tab" data-tab="simulation">シミュレーション</button>
+            </div>
+            ${buildSharedNav()}
           </div>
           <div class="shift-panel active" data-panel="checklist" id="panel-checklist"></div>
           <div class="shift-panel" data-panel="calendar" id="panel-calendar"></div>
@@ -72,14 +75,68 @@
       </div>`;
   }
 
+  // ── 共通ページ送り（タブ右隣）: 3タブで共有
+  function buildSharedNav() {
+    return `
+      <div class="shift-nav shift-shared-nav">
+        <button class="btn-prev">◀ 前の週</button>
+        <span class="week-label" data-role="week-label"></span>
+        <button class="btn-next">次の週 ▶</button>
+        <button class="btn-today">今週</button>
+        <span class="saving-indicator" data-role="saving"></span>
+      </div>`;
+  }
+
+  function updateSharedNavLabel(root) {
+    const el = root.querySelector('[data-role="week-label"]');
+    if (!el) return;
+    const start = State.currentWeekStart;
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const full = (d) => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+    const md   = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
+    el.textContent = `${full(start)} 〜 ${md(end)}`;
+  }
+
+  function bindSharedNav(root) {
+    const nav = root.querySelector('.shift-shared-nav');
+    if (!nav) return;
+    const q = (sel) => nav.querySelector(sel);
+    const syncAll = () => {
+      if (Calendar && Calendar.isInitialized && Calendar.isInitialized()) {
+        Calendar.gotoDate(State.currentWeekStart);
+      }
+      if (App.Simulation && App.Simulation.isInitialized && App.Simulation.isInitialized()) {
+        App.Simulation.gotoDate(State.currentWeekStart);
+      }
+      if (MiniCalendar) {
+        MiniCalendar.gotoDate(State.currentWeekStart);
+        MiniCalendar.setActiveWeek(State.currentWeekStart);
+      }
+    };
+    q('.btn-prev').onclick = () => {
+      State.currentWeekStart.setDate(State.currentWeekStart.getDate() - 7);
+      renderChecklistPanel(root);
+      syncAll();
+    };
+    q('.btn-next').onclick = () => {
+      State.currentWeekStart.setDate(State.currentWeekStart.getDate() + 7);
+      renderChecklistPanel(root);
+      syncAll();
+    };
+    q('.btn-today').onclick = () => {
+      State.currentWeekStart = Utils.startOfWeek(new Date());
+      renderChecklistPanel(root);
+      syncAll();
+    };
+  }
+
   // ── 常勤チェック表パネルの描画
   async function renderChecklistPanel(root) {
     const panel = root.querySelector('#panel-checklist');
     log('常勤チェック表 描画開始', { week: Utils.fmtDate(State.currentWeekStart) });
-    panel.innerHTML =
-      Render.buildHeader(State.currentWeekStart) +
-      Render.buildTable(State.currentWeekStart, {});
-    bindChecklistNav(panel, root);
+    panel.innerHTML = Render.buildTable(State.currentWeekStart, {});
+    updateSharedNavLabel(root);
     Editor.bindPatternSelects(panel);
     Editor.bindStaffSelects(panel);
 
@@ -97,34 +154,6 @@
     Render.applyDayMapToCells(panel, dayMap);
     Render.applyShiftsToStaffCells(panel, placementMap);
     log('常勤チェック表 描画完了');
-  }
-
-  function bindChecklistNav(panel, root) {
-    const q = (sel) => panel.querySelector(sel);
-    const syncAll = () => {
-      if (Calendar && typeof Calendar.gotoDate === 'function') {
-        Calendar.gotoDate(State.currentWeekStart);
-      }
-      if (MiniCalendar) {
-        MiniCalendar.gotoDate(State.currentWeekStart);
-        MiniCalendar.setActiveWeek(State.currentWeekStart);
-      }
-    };
-    if (q('.btn-prev')) q('.btn-prev').onclick = () => {
-      State.currentWeekStart.setDate(State.currentWeekStart.getDate() - 7);
-      renderChecklistPanel(root);
-      syncAll();
-    };
-    if (q('.btn-next')) q('.btn-next').onclick = () => {
-      State.currentWeekStart.setDate(State.currentWeekStart.getDate() + 7);
-      renderChecklistPanel(root);
-      syncAll();
-    };
-    if (q('.btn-today')) q('.btn-today').onclick = () => {
-      State.currentWeekStart = Utils.startOfWeek(new Date());
-      renderChecklistPanel(root);
-      syncAll();
-    };
   }
 
   // ── カレンダーパネル準備
@@ -183,6 +212,7 @@
       if (Utils.fmtDate(newWeekStart) === Utils.fmtDate(State.currentWeekStart)) return;
       log('カレンダー→チェック表 週同期', Utils.fmtDate(newWeekStart));
       State.currentWeekStart = newWeekStart;
+      updateSharedNavLabel(root);
       renderChecklistPanel(root).catch((e) => err('同期再描画失敗', e));
       if (MiniCalendar) {
         MiniCalendar.gotoDate(newWeekStart);
@@ -211,9 +241,13 @@
       (date) => {
         const newWeekStart = Utils.startOfWeek(date);
         State.currentWeekStart = newWeekStart;
+        updateSharedNavLabel(root);
         renderChecklistPanel(root).catch((e) => err('ミニ→チェック表失敗', e));
         if (Calendar && Calendar.isInitialized && Calendar.isInitialized()) {
           Calendar.gotoDate(newWeekStart);
+        }
+        if (App.Simulation && App.Simulation.isInitialized && App.Simulation.isInitialized()) {
+          App.Simulation.gotoDate(newWeekStart);
         }
       },
       async (year, month) => {
@@ -253,6 +287,7 @@
     const root = ensureRoot();
     root.innerHTML = buildShell();
     bindTabs(root);
+    bindSharedNav(root);
     prepareCalendarPanel(root);
     prepareSimulationPanel(root);
     bindCalendarToChecklist(root);

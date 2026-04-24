@@ -486,10 +486,8 @@
     },
 
     bindToolbar(container) {
+      // ページ送り（前/次/今日）は共通ナビ(タブ右隣)に集約。ここではビュー切替と取り込みのみ。
       const q = (sel) => container.querySelector(sel);
-      q('.sim-btn-prev')  && (q('.sim-btn-prev').onclick  = () => { fc && fc.prev(); });
-      q('.sim-btn-next')  && (q('.sim-btn-next').onclick  = () => { fc && fc.next(); });
-      q('.sim-btn-today') && (q('.sim-btn-today').onclick = () => { fc && fc.today(); });
       container.querySelectorAll('.sim-view-btn').forEach((btn) => {
         btn.onclick = () => {
           if (!fc) return;
@@ -501,13 +499,11 @@
       if (importBtn) importBtn.onclick = () => importFromProduction(container);
     },
 
+    // ページ送りは共通ナビ（タブ右隣）で行うため、ここではタイトル・ビュー切替・取り込みのみ
     buildPanelHtml() {
       return `
         <div class="fc-toolbar-row sim-toolbar-row">
           <div class="nav-group">
-            <button class="sim-btn-prev">◀</button>
-            <button class="sim-btn-today">今日</button>
-            <button class="sim-btn-next">▶</button>
             <span class="sim-date-title date-title"></span>
           </div>
           <div class="nav-group">

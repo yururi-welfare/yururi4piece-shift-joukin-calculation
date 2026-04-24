@@ -12,20 +12,6 @@
   const { fmtDate, fmtMD, cellClass, isHoliday, getPatternValues } = Utils;
 
   const Render = {
-    // 週ナビのヘッダー
-    buildHeader(startDate) {
-      const end = new Date(startDate);
-      end.setDate(end.getDate() + 6);
-      return `
-        <div class="shift-nav">
-          <button class="btn-prev">◀ 前の週</button>
-          <span class="week-label">${startDate.getFullYear()}年 ${fmtMD(startDate)} 〜 ${fmtMD(end)}</span>
-          <button class="btn-next">次の週 ▶</button>
-          <button class="btn-today">今週</button>
-          <span class="saving-indicator" data-role="saving"></span>
-        </div>`;
-    },
-
     // スタッフ用編集セルを生成
     // placement: 配置の種類（'管理者兼児発管' / '常勤専従' / '常勤換算' / '休憩ヘルプ'）
     // slotIndex: 同一placementで複数枠あるとき(常勤換算)の枠番号(0-2)。単一枠は0でOK
