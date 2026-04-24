@@ -147,6 +147,18 @@
       this._cache = {};
       this._pending = {};
     },
+
+    // 現在月をキャッシュ破棄→再集計→凡例反映まで一気通貫で行う
+    // チェック表セル保存／シミュのドラッグ・リサイズ・モーダル保存後に呼ぶ
+    async refreshCurrent() {
+      if (!this._currentKey) return;
+      const [y, m] = this._currentKey.split('-').map(Number);
+      this.clearCache();
+      await this.setMonth(y, m);
+      if (App.Legend && App.Legend.refreshHoursText) {
+        App.Legend.refreshHoursText();
+      }
+    },
   };
 
   function toMin(t) {

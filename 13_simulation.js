@@ -17,6 +17,22 @@
 
   let fc = null;
   let inited = false;
+  let toastTimer = null;
+
+  // 画面中央下トースト（06_calendar.jsの閲覧専用トーストと同じCSSを使い回し）
+  function showToast(msg) {
+    let el = document.getElementById('shift-sim-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'shift-sim-toast';
+      el.className = 'shift-readonly-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2500);
+  }
 
   // ── view helpers
   function setActiveViewBtn(container, viewName) {
@@ -132,27 +148,65 @@
   }
 
   // ドラッグ/リサイズ → app62 更新
+  // 休憩再計算ルール:
+  //  - 6h以下になった → 休憩クリア
+  //  - 6h超 → 休憩開始は現在の値を尊重（空なら既定値12:00）、終了は勤務時間から再計算
+  //            〜8h: 45分 / 8h超: 60分。変更がある場合のみpayloadに含める
   async function handleEventTimeChange(info, reason) {
     const ev = info.event;
     const start = ev.start;
     const end   = ev.end || new Date(start.getTime() + 15 * 60 * 1000);
     const recordId = ev.id;
     if (!recordId || !start) { info.revert(); return; }
+    const F = Config.SHIFT_FIELDS;
     const payload = {
       '開始日付': toDateStr(start),
       '開始時間': toTimeStr(start),
       '終了日付': toDateStr(end),
       '終了時間': toTimeStr(end),
     };
+
+    const rec = ev.extendedProps.record;
+    const workMin = Math.round((end - start) / 60000);
+    const curBs = (rec && rec[F.breakStartTime] && rec[F.breakStartTime].value) || '';
+    const curBe = (rec && rec[F.breakEndTime]   && rec[F.breakEndTime].value)   || '';
+    if (workMin > 0 && workMin <= 360) {
+      if (curBs || curBe) {
+        payload[F.breakStartTime] = '';
+        payload[F.breakEndTime]   = '';
+      }
+    } else if (workMin > 360) {
+      const breakMin = workMin <= 480 ? 45 : 60;
+      const bs = curBs || (Config.DEFAULT_BREAK_START || '12:00');
+      const be = toHHMM(toMin(bs) + breakMin);
+      if (bs !== curBs || be !== curBe) {
+        payload[F.breakStartTime] = bs;
+        payload[F.breakEndTime]   = be;
+      }
+    }
+
     log(`[シミュ]${reason}による時間変更`, { id: recordId, payload });
     try {
       await Api.updateShift(recordId, payload, Config.SIMULATION_APP_ID);
-      const rec = ev.extendedProps.record;
       if (rec) {
         rec['開始日付'] = { value: payload['開始日付'] };
         rec['開始時間'] = { value: payload['開始時間'] };
         rec['終了日付'] = { value: payload['終了日付'] };
         rec['終了時間'] = { value: payload['終了時間'] };
+        if (F.breakStartTime in payload) {
+          rec[F.breakStartTime] = { value: payload[F.breakStartTime] };
+          rec[F.breakEndTime]   = { value: payload[F.breakEndTime] };
+        }
+      }
+      // 休憩が自動変更された場合のみトースト通知
+      if (F.breakStartTime in payload) {
+        const newBs = payload[F.breakStartTime];
+        const newBe = payload[F.breakEndTime];
+        if (!newBs && !newBe) {
+          showToast('休憩時間を削除しました（勤務6時間以下）');
+        } else {
+          showToast(`休憩時間を ${newBs}〜${newBe} に設定しました`);
+        }
       }
     } catch (e) {
       info.revert();
@@ -381,24 +435,30 @@
           applyBreakOverlay(info.el, info.event, info.view);
         },
         select: (info) => {
-          App.ShiftDialog.showCreate(info.start, info.end, () => fc.refetchEvents(),
-            { appId: Config.SIMULATION_APP_ID });
+          App.ShiftDialog.showCreate(info.start, info.end, () => {
+            fc.refetchEvents();
+            if (App.MonthlyHours) App.MonthlyHours.refreshCurrent();
+          }, { appId: Config.SIMULATION_APP_ID });
           fc.unselect();
         },
         eventClick: (info) => {
           if (info.event.extendedProps.isMarker) return;
-          App.ShiftDialog.showEdit(info.event.extendedProps.record, () => fc.refetchEvents(),
-            { appId: Config.SIMULATION_APP_ID });
+          App.ShiftDialog.showEdit(info.event.extendedProps.record, () => {
+            fc.refetchEvents();
+            if (App.MonthlyHours) App.MonthlyHours.refreshCurrent();
+          }, { appId: Config.SIMULATION_APP_ID });
         },
         eventDrop: async (info) => {
           if (info.event.extendedProps.isMarker) { info.revert(); return; }
           await handleEventTimeChange(info, 'ドラッグ移動');
           applyBreakOverlay(info.el, info.event, info.view);
+          if (App.MonthlyHours) App.MonthlyHours.refreshCurrent();
         },
         eventResize: async (info) => {
           if (info.event.extendedProps.isMarker) { info.revert(); return; }
           await handleEventTimeChange(info, 'リサイズ');
           applyBreakOverlay(info.el, info.event, info.view);
+          if (App.MonthlyHours) App.MonthlyHours.refreshCurrent();
         },
       });
 

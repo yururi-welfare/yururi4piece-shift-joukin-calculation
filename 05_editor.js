@@ -127,6 +127,10 @@
     );
     State.currentShiftMaps = fresh;
     Render.applyShiftsToStaffCells(root, fresh);
+    // サイドバー凡例の月間時間・FTEバーを更新
+    if (App.MonthlyHours && App.MonthlyHours.refreshCurrent) {
+      App.MonthlyHours.refreshCurrent();
+    }
   }
 
   // セルクリック時：既存シフトがあれば詳細モーダル、無ければ登録モーダル

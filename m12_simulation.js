@@ -18,6 +18,10 @@
   let fc = null;
 
   // ドラッグ/リサイズ時の更新処理
+  // 休憩再計算ルール:
+  //  - 6h以下になった → 休憩クリア
+  //  - 6h超 → 休憩開始は現在の値を尊重（空なら既定値12:00）、終了は勤務時間から再計算
+  //            〜8h: 45分 / 8h超: 60分。変更がある場合のみpayloadに含める
   async function handleTimeChange(info) {
     const ev = info.event;
     const s = ev.start;
@@ -29,16 +33,50 @@
       [F.endDate]:   Utils.fmtDate(e),
       [F.endTime]:   Utils.toHHMM(e.getHours()   * 60 + e.getMinutes()),
     };
+
+    const rec = ev.extendedProps.record;
+    const workMin = Math.round((e - s) / 60000);
+    const curBs = (rec && rec[F.breakStartTime] && rec[F.breakStartTime].value) || '';
+    const curBe = (rec && rec[F.breakEndTime]   && rec[F.breakEndTime].value)   || '';
+    if (workMin > 0 && workMin <= 360) {
+      if (curBs || curBe) {
+        payload[F.breakStartTime] = '';
+        payload[F.breakEndTime]   = '';
+      }
+    } else if (workMin > 360) {
+      const breakMin = workMin <= 480 ? 45 : 60;
+      const bs = curBs || (Config.DEFAULT_BREAK_START || '12:00');
+      const be = Utils.toHHMM(Utils.toMin(bs) + breakMin);
+      if (bs !== curBs || be !== curBe) {
+        payload[F.breakStartTime] = bs;
+        payload[F.breakEndTime]   = be;
+      }
+    }
+
     try {
       await Api.updateShift(ev.id, payload, Config.SIMULATION_APP_ID);
-      const rec = ev.extendedProps.record;
       if (rec) {
         rec[F.startDate] = { value: payload[F.startDate] };
         rec[F.startTime] = { value: payload[F.startTime] };
         rec[F.endDate]   = { value: payload[F.endDate] };
         rec[F.endTime]   = { value: payload[F.endTime] };
+        if (F.breakStartTime in payload) {
+          rec[F.breakStartTime] = { value: payload[F.breakStartTime] };
+          rec[F.breakEndTime]   = { value: payload[F.breakEndTime] };
+        }
       }
-      toast('✓ 保存しました', 'success');
+      // 休憩が自動変更された時は専用メッセージ、それ以外は通常保存トースト
+      if (F.breakStartTime in payload) {
+        const newBs = payload[F.breakStartTime];
+        const newBe = payload[F.breakEndTime];
+        if (!newBs && !newBe) {
+          toast('休憩時間を削除しました（勤務6時間以下）', 'success');
+        } else {
+          toast(`休憩時間を ${newBs}〜${newBe} に設定しました`, 'success');
+        }
+      } else {
+        toast('✓ 保存しました', 'success');
+      }
     } catch (_) {
       info.revert();
       toast('保存失敗', 'error');
