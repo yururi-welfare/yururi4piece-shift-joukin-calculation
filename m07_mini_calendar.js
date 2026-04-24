@@ -48,6 +48,7 @@
               .then(() => { if (App.Legend) App.Legend.refreshHoursText(); })
               .catch((e) => err('月切替集計失敗', e));
           }
+          if (App.Simulation && App.Simulation.updateImportLabel) App.Simulation.updateImportLabel();
           setTimeout(() => MiniCalendar.highlightWeek(), 0);
         },
 

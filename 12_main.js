@@ -220,6 +220,7 @@
         Legend.updateTitleWithMonth(month);
         await MonthlyHours.setMonth(year, month);
         Legend.refreshHoursText();
+        if (App.Simulation && App.Simulation.updateImportLabel) App.Simulation.updateImportLabel();
       }
     );
 

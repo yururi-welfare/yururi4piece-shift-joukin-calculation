@@ -257,40 +257,48 @@
       .catch((e) => { err('[シミュ]日付マスタ取得失敗(背景)', e); failure(e); });
   }
 
-  // ── 現場シフト取り込み（完全上書き・週単位）
+  // 対象月を取得（ミニカレンダーの表示月 > FC view > 今日 の優先順）
+  function getTargetMonth() {
+    const MC = App.MiniCalendar;
+    if (MC && MC.getMonth) {
+      const mo = MC.getMonth();
+      if (mo) return mo;
+    }
+    const d = (fc && fc.view && fc.view.currentStart) || new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  }
+
+  // ── 現場シフト取り込み（完全上書き・月単位）
   async function importFromProduction(container) {
     if (!fc) return;
-    const view = fc.view;
-    // 表示中ビューの基準週を算出（週ビューは view.currentStart、それ以外は表示日を含む週）
-    const base = view.currentStart;
-    const weekStart = Utils.startOfWeek(base);
-    const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
-    const rangeLabel = `${Utils.fmtDate(weekStart)} 〜 ${Utils.fmtDate(weekEnd)}`;
+    const { year, month } = getTargetMonth();
+    const monthStart = new Date(year, month, 1);
+    const monthEnd   = new Date(year, month + 1, 0);
+    const rangeLabel = `${year}年${month + 1}月 (${Utils.fmtDate(monthStart)} 〜 ${Utils.fmtDate(monthEnd)})`;
 
     const ok = confirm(
       `現場シフト(app${Config.SHIFT_APP_ID}) → シミュレーション(app${Config.SIMULATION_APP_ID}) 取り込み\n\n` +
-      `対象週: ${rangeLabel}\n\n` +
-      `※ この週のシミュレーションデータは全て削除され、現場シフトの内容で上書きされます。\n` +
+      `対象月: ${rangeLabel}\n\n` +
+      `※ この月のシミュレーションデータは全て削除され、現場シフトの内容で上書きされます。\n` +
       `続行しますか？`
     );
     if (!ok) return;
 
     const btn = container.querySelector('.btn-sim-import');
-    const origText = btn && btn.textContent;
     if (btn) { btn.disabled = true; btn.textContent = '取り込み中...'; }
 
     try {
-      // 1. シミュの対象週レコードを取得→削除
-      const simRecords = await Api.fetchShifts(weekStart, weekEnd, Config.SIMULATION_APP_ID);
+      // 1. シミュの対象月レコードを取得→削除
+      const simRecords = await Api.fetchShifts(monthStart, monthEnd, Config.SIMULATION_APP_ID);
       const simIds = simRecords.map((r) => r.$id.value);
       log('[シミュ]取り込み: 既存削除', { 件数: simIds.length });
       await Api.deleteShiftsBulk(simIds, Config.SIMULATION_APP_ID);
 
-      // 2. 現場シフトの対象週レコードを取得
-      const prodRecords = await Api.fetchShifts(weekStart, weekEnd, Config.SHIFT_APP_ID);
+      // 2. 現場シフトの対象月レコードを取得
+      const prodRecords = await Api.fetchShifts(monthStart, monthEnd, Config.SHIFT_APP_ID);
       log('[シミュ]取り込み: 現場取得', { 件数: prodRecords.length });
 
-      // 3. シミュへ一括作成（レコードをdata形式に変換）
+      // 3. シミュへ一括作成
       const F = Config.SHIFT_FIELDS;
       const dataList = prodRecords.map((r) => ({
         [F.employeeNumber]: (r[F.employeeNumber] && r[F.employeeNumber].value) || '',
@@ -306,12 +314,19 @@
       log('[シミュ]取り込み完了', { 削除: simIds.length, 作成: dataList.length });
 
       fc.refetchEvents();
-      alert(`取り込み完了\n対象週: ${rangeLabel}\n削除: ${simIds.length}件 / 作成: ${dataList.length}件`);
+      // 月間時間を再集計して凡例に反映
+      if (App.MonthlyHours && App.MonthlyHours.clearCache) {
+        App.MonthlyHours.clearCache();
+        await App.MonthlyHours.setMonth(year, month);
+        if (App.Legend && App.Legend.refreshHoursText) App.Legend.refreshHoursText();
+      }
+      alert(`取り込み完了\n対象月: ${rangeLabel}\n削除: ${simIds.length}件 / 作成: ${dataList.length}件`);
     } catch (e) {
       err('[シミュ]取り込み失敗', e);
       alert('取り込みに失敗しました: ' + (e && e.message ? e.message : JSON.stringify(e)));
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = origText || '現場シフトを取り込む'; }
+      if (btn) btn.disabled = false;
+      Simulation.updateImportLabel();
     }
   }
 
@@ -390,6 +405,7 @@
       fc.render();
       setActiveViewBtn(container, Config.CALENDAR.INITIAL_VIEW);
       updateDateTitle(container);
+      Simulation.updateImportLabel();
       log('[シミュ]FullCalendar 初期化完了');
     },
 
@@ -397,6 +413,17 @@
     gotoDate(date) { if (fc && date) fc.gotoDate(date); },
     refreshEvents() { if (fc) fc.refetchEvents(); },
     isInitialized() { return inited; },
+
+    // 取り込みボタンのラベルをミニカレンダーの表示月に合わせて更新
+    updateImportLabel() {
+      const container = document.querySelector('[data-panel="simulation"]');
+      if (!container) return;
+      const btn = container.querySelector('.btn-sim-import');
+      if (!btn) return;
+      const { year, month } = getTargetMonth();
+      btn.textContent = `${month + 1}月 現場シフト取り込み`;
+      btn.title = `${year}年${month + 1}月のシミュレーションを現場シフトで上書き`;
+    },
 
     bindToolbar(container) {
       const q = (sel) => container.querySelector(sel);
@@ -427,7 +454,7 @@
             <button class="sim-view-btn view-btn" data-view="timeGridDay">日</button>
             <button class="sim-view-btn view-btn" data-view="timeGridWeek">週</button>
             <button class="sim-view-btn view-btn" data-view="dayGridMonth">月</button>
-            <button class="btn-sim-import" type="button" title="表示中の週を現場シフトで上書き">現場シフトを取り込む</button>
+            <button class="btn-sim-import" type="button" title="表示中月を現場シフトで上書き">現場シフト取り込み</button>
           </div>
         </div>
         <div id="sim-calendar"></div>`;
