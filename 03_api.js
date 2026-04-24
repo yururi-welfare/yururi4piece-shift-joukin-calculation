@@ -97,6 +97,8 @@
     },
 
     // 全スタッフ取得（就業先=放デイゆるりフォーピースのみ絞込）
+    // 並び順: 資格優先（管理者兼児発管→常勤専従→常勤換算→未設定）
+    //         常勤換算はふりがな順、それ以外は従業員番号順
     async fetchAllStaff() {
       if (allStaffCache !== null) return allStaffCache;
       const query =
@@ -108,12 +110,24 @@
           'GET',
           { app: Config.EMPLOYEE_APP_ID, query: query }
         );
+        const priority = { '管理者兼児発管': 1, '常勤専従': 2, '常勤換算': 3 };
         allStaffCache = res.records
           .map((r) => ({
-            氏名: r['氏名'] && r['氏名'].value,
-            従業員番号: r['従業員番号'] && r['従業員番号'].value,
+            氏名:       r['氏名']           && r['氏名'].value,
+            ふりがな:   (r['氏名_ふりがな'] && r['氏名_ふりがな'].value) || '',
+            従業員番号: r['従業員番号']     && r['従業員番号'].value,
+            資格:       (r['放デイゆるり_資格'] && r['放デイゆるり_資格'].value) || '',
           }))
-          .filter((e) => e.氏名);
+          .filter((e) => e.氏名)
+          .sort((a, b) => {
+            const pa = priority[a.資格] || 99;
+            const pb = priority[b.資格] || 99;
+            if (pa !== pb) return pa - pb;
+            if (a.資格 === '常勤換算' && b.資格 === '常勤換算') {
+              return a.ふりがな.localeCompare(b.ふりがな, 'ja');
+            }
+            return String(a.従業員番号 || '').localeCompare(String(b.従業員番号 || ''));
+          });
         log('全スタッフ取得成功', { 件数: allStaffCache.length });
         return allStaffCache;
       } catch (e) {

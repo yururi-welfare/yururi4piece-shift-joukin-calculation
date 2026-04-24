@@ -82,15 +82,16 @@
     const qualList = readQualificationList(rec);
     const qualStr  = qualList.join(' / ');
     const title = qualStr ? `${name}（${qualStr}）` : name;
-    const color = qualificationColor(qualList);
+    const colors = placementColors(placement);
 
     return {
       id: rec.$id.value,
       title: title,
       start: `${startDate}T${startTime}`,
       end: endDate ? `${endDate}T${endTime}` : `${startDate}T${endTime}`,
-      backgroundColor: color,
-      borderColor: color,
+      backgroundColor: colors.bg,
+      borderColor:     colors.border,
+      textColor:       colors.text,
       extendedProps: {
         record: rec,
         placement: placement,
@@ -99,12 +100,51 @@
     };
   }
 
-  // 資格に応じた色（優先順位: 児発管 > 常勤 > 非常勤 > その他）
-  function qualificationColor(qualList) {
-    if (qualList.includes('児発管')) return '#4c6ef5';
-    if (qualList.includes('常勤'))   return '#38a169';
-    if (qualList.includes('非常勤')) return '#ed8936';
-    return '#718096';
+  // 配置の種類に応じた色（サイドバー凡例と同じ色で塗りつぶし）
+  // 色が薄めなので文字は濃色で可読性を確保
+  function placementColors(placement) {
+    const legend = (Config.LEGEND_COLORS && Config.LEGEND_COLORS.placement) || {};
+    const color = legend[placement] || '#9aa4b2';
+    return { bg: color, border: color, text: '#1a202c' };
+  }
+
+  // 休憩時間帯だけ色を薄める縦方向オーバーレイ
+  // 週/日ビューのみ対象。背景色はFCが設定済みなので background-image のみ操作
+  function applyBreakOverlay(el, event, view) {
+    if (!el) return;
+    el.style.backgroundImage = '';
+    const viewType = view && view.type;
+    if (!viewType || viewType.indexOf('timeGrid') !== 0) return;
+    const rec = event.extendedProps && event.extendedProps.record;
+    if (!rec) return;
+    const F = Config.SHIFT_FIELDS;
+    const bs = rec[F.breakStartTime] && rec[F.breakStartTime].value;
+    const be = rec[F.breakEndTime]   && rec[F.breakEndTime].value;
+    if (!bs || !be) return;
+    const start = event.start, end = event.end;
+    if (!start || !end) return;
+
+    const bm = bs.match(/(\d{1,2}):(\d{2})/);
+    const em = be.match(/(\d{1,2}):(\d{2})/);
+    if (!bm || !em) return;
+    const bsDate = new Date(start); bsDate.setHours(+bm[1], +bm[2], 0, 0);
+    const beDate = new Date(start); beDate.setHours(+em[1], +em[2], 0, 0);
+
+    const totalMs = end - start;
+    if (totalMs <= 0) return;
+    let bsPct = (bsDate - start) / totalMs * 100;
+    let bePct = (beDate - start) / totalMs * 100;
+    if (bsPct >= 100 || bePct <= 0 || bsPct >= bePct) return;
+    bsPct = Math.max(0, bsPct);
+    bePct = Math.min(100, bePct);
+    if (bePct - bsPct < 1) return;
+
+    const brk = 'rgba(255,255,255,0.5)';
+    el.style.backgroundImage =
+      `linear-gradient(to bottom,` +
+      ` transparent 0%, transparent ${bsPct}%,` +
+      ` ${brk} ${bsPct}%, ${brk} ${bePct}%,` +
+      ` transparent ${bePct}%, transparent 100%)`;
   }
 
   // Date → "YYYY-MM-DD"
@@ -349,12 +389,13 @@
             info.el.classList.add('is-holiday');
           }
         },
-        // イベントDOMに凡例フィルタ用の data-* を付与
+        // イベントDOMに凡例フィルタ用の data-* を付与＋休憩帯オーバーレイ
         eventDidMount: (info) => {
           const p = info.event.extendedProps || {};
           if (p.isMarker) return;
           if (p.placement != null)      info.el.dataset.placement      = p.placement || 'none';
           if (p.employeeNumber != null) info.el.dataset.employeeNumber = p.employeeNumber || 'none';
+          applyBreakOverlay(info.el, info.event, info.view);
         },
         // 読み取り専用: select/eventDrop/eventResize は無効化
         // eventClick は残し、クリック時に案内トーストを表示

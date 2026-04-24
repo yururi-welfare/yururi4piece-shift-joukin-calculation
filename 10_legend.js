@@ -246,7 +246,7 @@
     updateTitleWithMonth(month) {
       const el = document.getElementById('legend-section-title');
       if (!el) return;
-      el.textContent = `表示項目（${month + 1}月合計時間）`;
+      el.textContent = `表示項目（28日までの合計時間 / ${month + 1}月合計時間）`;
     },
   };
 

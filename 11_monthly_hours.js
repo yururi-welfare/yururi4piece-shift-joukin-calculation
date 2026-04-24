@@ -29,10 +29,13 @@
       log('月間時間集計 開始', { year, month: month + 1 });
 
       const p = Api.fetchShifts(start, end, Config.SIMULATION_APP_ID).then((records) => {
-        const byNum = {};       // number → totalMinutes（実働: 休憩差し引き）
-        const byPlacement = {}; // placement → totalMinutes
+        const byNum = {};           // 月全体: number → totalMinutes（実働）
+        const byPlacement = {};     // 月全体: placement → totalMinutes
+        const byNumTo28 = {};       // 1〜28日: number → totalMinutes
+        const byPlacementTo28 = {}; // 1〜28日: placement → totalMinutes
         records.forEach((r) => {
           const num = r['従業員番号'] && r['従業員番号'].value;
+          const sd  = r['開始日付']   && r['開始日付'].value;
           const st  = r['開始時間']   && r['開始時間'].value;
           const et  = r['終了時間']   && r['終了時間'].value;
           const placement = r['配置の種類'] && r['配置の種類'].value;
@@ -47,15 +50,19 @@
           if (diff <= 0) return;
           if (num)       byNum[num]             = (byNum[num] || 0) + diff;
           if (placement) byPlacement[placement] = (byPlacement[placement] || 0) + diff;
+          const dayNum = sd ? parseInt(sd.split('-')[2], 10) : 0;
+          if (dayNum >= 1 && dayNum <= 28) {
+            if (num)       byNumTo28[num]             = (byNumTo28[num] || 0) + diff;
+            if (placement) byPlacementTo28[placement] = (byPlacementTo28[placement] || 0) + diff;
+          }
         });
-        const persons = {}, placements = {};
-        Object.entries(byNum).forEach(([n, min]) => {
-          persons[n] = Math.round((min / 60) * 100) / 100;
-        });
-        Object.entries(byPlacement).forEach(([n, min]) => {
-          placements[n] = Math.round((min / 60) * 100) / 100;
-        });
-        const result = { persons, placements };
+        const toH = (min) => Math.round((min / 60) * 100) / 100;
+        const persons = {}, placements = {}, personsTo28 = {}, placementsTo28 = {};
+        Object.entries(byNum).forEach(([n, min])           => { persons[n]        = toH(min); });
+        Object.entries(byPlacement).forEach(([n, min])     => { placements[n]     = toH(min); });
+        Object.entries(byNumTo28).forEach(([n, min])       => { personsTo28[n]    = toH(min); });
+        Object.entries(byPlacementTo28).forEach(([n, min]) => { placementsTo28[n] = toH(min); });
+        const result = { persons, placements, personsTo28, placementsTo28 };
         this._cache[k] = result;
         delete this._pending[k];
         log('月間時間集計 完了', {
@@ -81,24 +88,29 @@
       return this._currentData;
     },
 
-    // 従業員番号の合計時間テキスト（未集計/0は空文字）
+    // 従業員番号の合計時間テキスト「28日まで / 月全体」。未集計/共に0なら空文字
     getPersonHoursText(employeeNumber) {
-      const h = this._currentData.persons && this._currentData.persons[employeeNumber];
-      if (h == null || h === 0) return '';
-      return `${h}h`;
+      const h   = (this._currentData.persons     && this._currentData.persons[employeeNumber])     || 0;
+      const h28 = (this._currentData.personsTo28 && this._currentData.personsTo28[employeeNumber]) || 0;
+      if (h === 0 && h28 === 0) return '';
+      return `${h28}h / ${h}h`;
     },
 
-    // 配置の種類の合計時間テキスト（未集計/0は空文字）
+    // 配置の種類の合計時間テキスト「28日まで / 月全体」。未集計/共に0なら空文字
     // ※ 「常勤換算」は「休憩ヘルプ」の時間も合算して表示する
     getPlacementHoursText(placementName) {
-      const map = this._currentData.placements || {};
-      let h = map[placementName] || 0;
+      const map   = this._currentData.placements     || {};
+      const map28 = this._currentData.placementsTo28 || {};
+      let h   = map[placementName]   || 0;
+      let h28 = map28[placementName] || 0;
       if (placementName === '常勤換算') {
-        h += map['休憩ヘルプ'] || 0;
-        h = Math.round(h * 100) / 100;
+        h   += map['休憩ヘルプ']   || 0;
+        h28 += map28['休憩ヘルプ'] || 0;
+        h   = Math.round(h   * 100) / 100;
+        h28 = Math.round(h28 * 100) / 100;
       }
-      if (h === 0) return '';
-      return `${h}h`;
+      if (h === 0 && h28 === 0) return '';
+      return `${h28}h / ${h}h`;
     },
 
     // 常勤換算の人数内訳を返す（1人 = 128h）
