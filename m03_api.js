@@ -1,20 +1,26 @@
 /**
- * 放デイシフト - kintone API
- * 日付マスタ/従業員マスタの取得・保存
+ * 放デイシフト モバイル - kintone API
+ * 日付マスタ/従業員マスタ/シフトの取得・作成・更新・削除
  * 読み込み順: 3
+ *
+ * 全シフト系APIは第3引数 appId で書込先を切替:
+ *   - 省略時: Config.SHIFT_APP_ID (60, 現場)
+ *   - 編集機能: Config.SIMULATION_APP_ID (62)
+ *
+ * 休憩フィールドは '' を明示すれば空にする（6時間以下の休憩なし対応）
  */
 (function () {
   'use strict';
 
-  const App = window.ShiftApp;
-  const { Config, State, Utils, log, err } = App;
+  const App = window.ShiftMobile;
+  if (!App) return;
+  const { Config, Utils, State, log, err } = App;
 
-  // 全スタッフキャッシュ（ダイアログ用）
+  // 全スタッフキャッシュ（ダイアログ間で共有）
   let allStaffCache = null;
 
   const Api = {
-    // 指定期間分の日付マスタを取得し YYYY-MM-DD キーの map で返す
-    // endDate 省略時は startDate から7日間
+    // 指定期間の日付マスタを取得し YYYY-MM-DD キーの map で返す
     async fetchDayMasters(startDate, endDate) {
       const end = endDate
         ? new Date(endDate)
@@ -33,17 +39,15 @@
         res.records.forEach((r) => { map[r['営業日'].value] = r; });
         return map;
       } catch (e) {
-        err('日付マスタ取得失敗（App未作成／権限不足／フィールドコード相違の可能性）', e);
+        err('日付マスタ取得失敗', e);
         return {};
       }
     },
 
     // 指定日のフィールド値を更新。全フィールド空なら既存レコードを削除
-    // updates = { 営業パターン: '10:00〜18:00', 児発管: '高橋', ... }
     async saveDayField(dateStr, updates, existingRecordId) {
       try {
         const existingRec = State.currentDayMap[dateStr];
-        // 更新後の全トラッキングフィールド値をシミュレート
         const finalValues = {};
         for (const field of Config.TRACKED_FIELDS) {
           finalValues[field] = (field in updates)
@@ -101,9 +105,8 @@
     //         常勤換算はふりがな順、それ以外は従業員番号順
     async fetchAllStaff() {
       if (allStaffCache !== null) return allStaffCache;
-      const query =
-        '就業先 in ("放デイ　ゆるりフォーピース") order by 従業員番号 asc';
-      log('全スタッフ取得開始', { app: Config.EMPLOYEE_APP_ID, query });
+      const query = '就業先 in ("放デイ　ゆるりフォーピース") order by 従業員番号 asc';
+      log('全スタッフ取得開始', { app: Config.EMPLOYEE_APP_ID });
       try {
         const res = await kintone.api(
           kintone.api.url('/k/v1/records', true),
@@ -136,40 +139,6 @@
       }
     },
 
-    // 週分のシフトを取得し、配置の種類→日付→レコード配列(開始時間昇順) の map にして返す
-    // 例: { '常勤換算': { '2026-04-27': [rec1, rec2, rec3] } }
-    // ※ 「休憩ヘルプ」は「常勤換算」バケットに合算する（常勤チェック表で同一セル群に表示するため）。
-    //   月間時間集計(11_monthly_hours.js)でも「常勤換算」は「休憩ヘルプ」を含めた合計で表示している。
-    async fetchShiftsGroupedByPlacement(startDate, endDate, appId) {
-      const F = Config.SHIFT_FIELDS;
-      const records = await Api.fetchShifts(startDate, endDate, appId);
-      const map = {};
-      records.forEach((r) => {
-        let p = r[F.placementType] && r[F.placementType].value;
-        const d = r[F.startDate] && r[F.startDate].value;
-        if (!p || !d) return;
-        if (p === '休憩ヘルプ') p = '常勤換算';  // 合算表示
-        if (!map[p]) map[p] = {};
-        if (!map[p][d]) map[p][d] = [];
-        map[p][d].push(r);
-      });
-      // 各日付の配列を開始時間昇順にソート（常勤換算の 1人目→2人目 割当のため）
-      Object.keys(map).forEach((p) => {
-        Object.keys(map[p]).forEach((d) => {
-          map[p][d].sort((a, b) => {
-            const t1 = (a[F.startTime] && a[F.startTime].value) || '';
-            const t2 = (b[F.startTime] && b[F.startTime].value) || '';
-            return t1.localeCompare(t2);
-          });
-        });
-      });
-      log('配置別グルーピング完了', {
-        placements: Object.keys(map),
-        件数: records.length,
-      });
-      return map;
-    },
-
     // 指定アプリから期間内のシフトを取得（appId省略時はConfig.SHIFT_APP_ID）
     async fetchShifts(startDate, endDate, appId) {
       const F = Config.SHIFT_FIELDS;
@@ -186,15 +155,12 @@
         log('シフト取得成功', { app, 件数: res.records.length });
         return res.records;
       } catch (e) {
-        err('シフト取得失敗（アプリ未作成／権限不足の可能性）', { app, e });
+        err('シフト取得失敗', { app, e });
         return [];
       }
     },
 
-    // 汎用シフト作成（ダイアログから使用）
-    // data = { 従業員番号, 配置の種類, 開始日付, 開始時間, 終了日付, 終了時間, 休憩開始時間, 休憩終了時間 }
-    // ※ 従業員名・資格はルックアップで自動コピーされるためAPIでは設定しない
-    // ※ 休憩フィールドは '' を渡せば明示的に空にする（6時間以下の休憩なし）
+    // 新規シフト作成
     async createShift(data, appId) {
       const F = Config.SHIFT_FIELDS;
       const record = {};
@@ -204,7 +170,6 @@
       if (data[F.startTime])      record[F.startTime]      = { value: data[F.startTime] };
       if (data[F.endDate])        record[F.endDate]        = { value: data[F.endDate] };
       if (data[F.endTime])        record[F.endTime]        = { value: data[F.endTime] };
-      // 休憩は空文字でも送る（明示的な空）
       if (F.breakStartTime in data) record[F.breakStartTime] = { value: data[F.breakStartTime] || '' };
       if (F.breakEndTime   in data) record[F.breakEndTime]   = { value: data[F.breakEndTime]   || '' };
       const id = await Api._postShiftRecord(record, { via: 'createShift', input: data }, appId);
@@ -212,12 +177,10 @@
       return id;
     },
 
-    // 内部: 共通POST処理（詳細ログ付き）
     async _postShiftRecord(record, context, appId) {
       const app = appId || Config.SHIFT_APP_ID;
       const body = { app: app, record: record };
-      // ─ リクエスト詳細を JSON で可読出力
-      console.groupCollapsed('[放デイシフト] シフト作成リクエスト');
+      console.groupCollapsed('[放デイシフト モバイル] シフト作成リクエスト');
       console.log('context:', context);
       console.log('app:', app);
       console.log('record JSON:', JSON.stringify(record, null, 2));
@@ -225,34 +188,23 @@
       try {
         const res = await kintone.api(
           kintone.api.url('/k/v1/record', true),
-          'POST',
-          body
+          'POST', body
         );
         log('シフト作成成功 id=' + res.id + ' revision=' + res.revision);
         return res.id;
       } catch (e) {
-        // kintone エラーは e.message / e.code / e.id / e.errors に詳細が入る
-        console.group('[放デイシフト] シフト作成失敗 (400等)');
+        console.group('[放デイシフト モバイル] シフト作成失敗');
         console.error('message:', e && e.message);
         console.error('code:',    e && e.code);
-        console.error('id:',      e && e.id);
         console.error('errors:',  e && e.errors);
-        try {
-          console.error('errors(JSON):', JSON.stringify(e && e.errors, null, 2));
-        } catch (_) { /* 循環参照などで失敗した場合は無視 */ }
-        console.error('送信record(JSON):', JSON.stringify(record, null, 2));
-        console.error('context:', context);
-        console.error('raw error object:', e);
+        try { console.error('errors(JSON):', JSON.stringify(e && e.errors, null, 2)); } catch (_) {}
+        console.error('raw:', e);
         console.groupEnd();
         return null;
       }
     },
 
-    // シフト更新（ドラッグ/リサイズ／編集モーダルから使用）
-    // data に含まれるキーのみ更新
-    // - 開始日付/開始時間/終了日付/終了時間（ドラッグ・リサイズ・編集）
-    // - 従業員番号/配置の種類（編集モーダル）※従業員名・資格はルックアップで自動再取得
-    // - 休憩開始時間/休憩終了時間（編集モーダル）※空文字で明示的クリア
+    // シフト更新
     async updateShift(recordId, data, appId) {
       const F = Config.SHIFT_FIELDS;
       const app = appId || Config.SHIFT_APP_ID;
@@ -265,11 +217,6 @@
       if (data[F.endTime])   record[F.endTime]   = { value: data[F.endTime] };
       if (F.breakStartTime in data) record[F.breakStartTime] = { value: data[F.breakStartTime] || '' };
       if (F.breakEndTime   in data) record[F.breakEndTime]   = { value: data[F.breakEndTime]   || '' };
-      console.groupCollapsed('[放デイシフト] シフト更新リクエスト');
-      console.log('app:', app);
-      console.log('id:', recordId);
-      console.log('record JSON:', JSON.stringify(record, null, 2));
-      console.groupEnd();
       try {
         const res = await kintone.api(
           kintone.api.url('/k/v1/record', true),
@@ -279,13 +226,9 @@
         log('シフト更新成功 id=' + recordId + ' revision=' + res.revision);
         return res.revision;
       } catch (e) {
-        console.group('[放デイシフト] シフト更新失敗');
-        console.error('app:',     app);
+        console.group('[放デイシフト モバイル] シフト更新失敗');
         console.error('message:', e && e.message);
-        console.error('code:',    e && e.code);
         console.error('errors:',  e && e.errors);
-        try { console.error('errors(JSON):', JSON.stringify(e && e.errors, null, 2)); } catch (_) {}
-        console.error('送信record:', JSON.stringify(record, null, 2));
         console.error('raw:', e);
         console.groupEnd();
         throw e;
@@ -308,7 +251,7 @@
       }
     },
 
-    // 複数レコード一括削除（最大100件/回）。取り込みボタン用
+    // 複数レコード一括削除（最大100件/回）
     async deleteShiftsBulk(recordIds, appId) {
       const app = appId || Config.SHIFT_APP_ID;
       if (!recordIds || recordIds.length === 0) return;
@@ -324,13 +267,12 @@
       }
     },
 
-    // 複数レコード一括作成（最大100件/回）。取り込みボタン用
-    // records = [{ 従業員番号:'...', 配置の種類:'...', ... }, ...]
+    // 複数レコード一括作成（最大100件/回）
     async createShiftsBulk(dataList, appId) {
       const F = Config.SHIFT_FIELDS;
       const app = appId || Config.SHIFT_APP_ID;
       if (!dataList || dataList.length === 0) return [];
-      const toKintoneRecord = (d) => {
+      const toRecord = (d) => {
         const r = {};
         if (d[F.employeeNumber]) r[F.employeeNumber] = { value: d[F.employeeNumber] };
         if (d[F.placementType])  r[F.placementType]  = { value: d[F.placementType] };
@@ -345,7 +287,7 @@
       const chunkSize = 100;
       const results = [];
       for (let i = 0; i < dataList.length; i += chunkSize) {
-        const chunk = dataList.slice(i, i + chunkSize).map(toKintoneRecord);
+        const chunk = dataList.slice(i, i + chunkSize).map(toRecord);
         log('シフト一括作成', { app, 件数: chunk.length });
         const res = await kintone.api(
           kintone.api.url('/k/v1/records', true),

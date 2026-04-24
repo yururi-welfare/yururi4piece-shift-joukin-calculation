@@ -1,0 +1,781 @@
+/**
+ * 放デイシフト - モバイル専用CSS
+ * kintone モバイル一覧画面上に固定表示する独自UIのスタイル
+ */
+
+/* ── リセット & ベース ────────────────── */
+.m-shift-root,
+.m-shift-root *,
+.m-shift-root *::before,
+.m-shift-root *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.m-shift-root {
+  position: relative;
+  background: #f5f7fa;
+  min-height: 100vh;
+  font-family: "Yu Gothic", "游ゴシック", "Hiragino Sans", "Meiryo", sans-serif;
+  color: #1a202c;
+  font-size: 14px;
+  line-height: 1.4;
+  padding-bottom: 40px;
+}
+
+/* ── ヘッダー ─────────────────────────── */
+.m-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #2b6cb0;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.m-hamburger,
+.m-today {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: #fff;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 16px;
+  cursor: pointer;
+  min-width: 44px;
+  min-height: 36px;
+}
+.m-hamburger { font-size: 20px; padding: 4px 10px; }
+.m-today:active { background: rgba(255, 255, 255, 0.15); }
+.m-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* ── 日付ナビ ─────────────────────────── */
+.m-date-bar {
+  position: sticky;
+  top: 52px;
+  z-index: 49;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+.m-date-prev,
+.m-date-next {
+  flex: 0 0 44px;
+  background: #edf2f7;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 18px;
+  cursor: pointer;
+  min-height: 40px;
+}
+.m-date-prev:active,
+.m-date-next:active { background: #e2e8f0; }
+.m-date-label {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: bold;
+  min-height: 40px;
+  cursor: pointer;
+}
+.m-date-label:active { background: #ebf8ff; }
+
+/* ── タブバー ─────────────────────────── */
+.m-tabs {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 104px;
+  z-index: 48;
+}
+.m-tab {
+  flex: 1;
+  padding: 10px 4px;
+  border: none;
+  background: transparent;
+  color: #4a5568;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  min-height: 42px;
+}
+.m-tab.is-active {
+  color: #2b6cb0;
+  border-bottom-color: #2b6cb0;
+  font-weight: bold;
+}
+
+/* ── パネル ───────────────────────────── */
+.m-panels {
+  padding: 0;
+}
+.m-panel {
+  display: none;
+  padding: 8px;
+}
+.m-panel.is-active {
+  display: block;
+}
+
+/* ── チェック表タブ（週表示・横スクロール） ─── */
+.m-cl-loading {
+  padding: 40px 0;
+  text-align: center;
+  color: #718096;
+}
+.m-cl-week-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* 画面全体から固定ヘッダ(m-header+date-bar+tabs≒150px)を引いた高さで縦スクロール。
+   * これによりthead thの position:sticky; top:0 が効く（スクロール親が自身になるため）。
+   * dvh 非対応ブラウザ用に vh のフォールバック先行。 */
+  max-height: calc(100vh - 160px);
+  max-height: calc(100dvh - 160px);
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+.m-cl-week-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  font-size: 11px;
+}
+.m-cl-week-table th,
+.m-cl-week-table td {
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 4px 3px;
+  vertical-align: middle;
+  text-align: center;
+  background: #fff;
+}
+.m-cl-week-table thead th {
+  background: #edf2f7;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-width: 96px;
+  width: 96px;
+  line-height: 1.25;
+  padding: 6px 2px;
+}
+/* ヘッダ左上の空セルは最前面 */
+.m-cl-week-table thead th.m-cl-rowhead {
+  left: 0;
+  z-index: 3;
+  min-width: 56px;
+  width: 56px;
+}
+/* 行ラベル列を左に固定 */
+.m-cl-week-table .m-cl-rowhead {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #f7fafc;
+  min-width: 56px;
+  width: 56px;
+  font-size: 10px;
+  font-weight: bold;
+  color: #2d3748;
+  line-height: 1.15;
+  padding: 4px 2px;
+  border-right: 2px solid #cbd5e0;
+}
+.m-cl-week-table .m-cl-rowhead-group {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+/* グループ見出し行 */
+.m-cl-week-table .m-cl-group-head td {
+  background: #ebf8ff;
+  color: #2b6cb0;
+  font-weight: bold;
+  font-size: 11px;
+  text-align: left;
+  padding: 4px 10px;
+  position: sticky;
+  left: 0;
+}
+/* 曜日カラー */
+.m-cl-week-table th.sun { color: #c53030; }
+.m-cl-week-table th.sat { color: #2b6cb0; }
+.m-cl-week-table td.sun { background: rgba(197, 48, 48, 0.04); }
+.m-cl-week-table td.sat { background: rgba(43, 108, 176, 0.04); }
+.m-cl-week-table .m-cl-holi {
+  font-size: 9px;
+  color: #c53030;
+  font-weight: normal;
+  margin-top: 1px;
+}
+
+/* セル共通 */
+.m-cl-cell {
+  min-width: 96px;
+  width: 96px;
+  height: 56px;
+  cursor: pointer;
+}
+.m-cl-cell:active { background: #edf2f7 !important; }
+
+/* 営業時間セル */
+.m-cl-eigyou-display {
+  display: inline-block;
+  font-size: 11px;
+  color: #1a202c;
+  font-weight: 500;
+}
+.m-cl-eigyou-display.is-empty { color: #cbd5e0; }
+.m-cl-eigyou.editing select {
+  width: 100%;
+  font-size: 11px;
+  padding: 4px 2px;
+  min-height: 32px;
+}
+
+/* サービス提供時間 */
+.m-cl-service {
+  color: #4a5568;
+  background: #fafcfe;
+}
+
+/* スタッフセル */
+.m-cl-staff-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.m-cl-staff-name {
+  font-weight: bold;
+  font-size: 11px;
+  color: #1a202c;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-cl-staff-time {
+  font-size: 9px;
+  color: #4a5568;
+  line-height: 1.2;
+}
+.m-cl-staff-empty {
+  color: #cbd5e0;
+  font-size: 18px;
+  font-weight: normal;
+}
+
+/* ── FullCalendar モバイル最適化（週表示・横スクロール） ── */
+/* 外側ラッパーで横スクロール、内側FCに固定幅を与えて狭い画面からあふれさせる。
+ * kintoneモバイルがレスポンシブ用に max-width:100% を注入している可能性があるため
+ * width/min-width 両方＋!important で強制する。 */
+.m-fc-scroll {
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.m-panel .m-fc-scroll > #m-fc-cal,
+.m-panel .m-fc-scroll > #m-fc-sim {
+  width: 780px !important;        /* 時間軸 + 7日 × ~100px */
+  min-width: 780px !important;
+  max-width: none !important;
+  padding: 4px;
+  box-sizing: border-box;
+}
+/* FC内部要素も親幅に追従させる（％計算が親の780pxに対して働く） */
+.m-fc-scroll .fc,
+.m-fc-scroll .fc-view-harness {
+  width: 100% !important;
+}
+/* FC内部のスクロールも滑らかに */
+.m-panel .fc-scroller {
+  -webkit-overflow-scrolling: touch;
+}
+.m-panel .fc {
+  font-size: 12px;
+}
+.m-panel .fc .fc-col-header-cell-cushion {
+  font-size: 13px;
+  font-weight: bold;
+  padding: 6px 2px;
+}
+.m-panel .fc .fc-timegrid-slot-label-cushion {
+  font-size: 11px;
+  padding: 0 2px;
+}
+.m-panel .fc .fc-event {
+  padding: 2px 4px;
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.m-panel .fc .fc-event-title {
+  font-weight: bold;
+}
+.m-panel .fc-col-header-cell.is-holiday,
+.m-panel .fc-day.is-holiday {
+  background: rgba(197, 48, 48, 0.06);
+}
+.m-panel .fc-col-header-cell.is-holiday .fc-col-header-cell-cushion {
+  color: #c53030;
+}
+.m-panel .fc .fc-day-sat .fc-col-header-cell-cushion { color: #2b6cb0; }
+.m-panel .fc .fc-day-sun .fc-col-header-cell-cushion { color: #c53030; }
+
+/* 営業時間外 背景 */
+.m-panel .fc .fc-bg-event.offhours-bg {
+  opacity: 0.4;
+}
+/* 営業開始/終了マーカー */
+.m-panel .fc .shift-marker {
+  background: transparent !important;
+  border: 1px dashed #a0aec0 !important;
+  color: #4a5568 !important;
+  font-size: 10px !important;
+  text-align: center;
+}
+.m-panel .fc .shift-marker-open { border-bottom-color: #2b6cb0 !important; }
+.m-panel .fc .shift-marker-close { border-top-color: #c53030 !important; }
+
+.m-panel .fc .holiday-name {
+  display: block;
+  font-size: 10px;
+  color: #c53030;
+  font-weight: normal;
+}
+
+/* シミュ ツールバー */
+.m-sim-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 6px;
+}
+.m-sim-import {
+  padding: 8px 14px;
+  background: #48bb78;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 13px;
+  min-height: 40px;
+  cursor: pointer;
+}
+.m-sim-import:active { background: #38a169; }
+.m-sim-import:disabled { background: #a0aec0; }
+
+/* ── ドロワー ─────────────────────────── */
+.m-drawer-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 100;
+}
+.m-drawer {
+  position: fixed;
+  top: 0; left: 0;
+  width: 85%;
+  max-width: 320px;
+  height: 100%;
+  background: #fff;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  z-index: 101;
+  overflow-y: auto;
+}
+.is-drawer-open .m-drawer-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+.is-drawer-open .m-drawer {
+  transform: translateX(0);
+}
+.m-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #2b6cb0;
+  color: #fff;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+}
+.m-drawer-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 6px;
+}
+.m-drawer-section {
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf2f7;
+}
+.m-drawer-section h3 {
+  font-size: 13px;
+  font-weight: bold;
+  color: #2d3748;
+  margin: 0 0 8px;
+}
+
+/* ミニカレンダー */
+#m-mini-cal .fc {
+  font-size: 11px;
+}
+#m-mini-cal .fc .fc-toolbar-title {
+  font-size: 14px;
+}
+#m-mini-cal .fc .fc-button {
+  padding: 4px 8px;
+  font-size: 12px;
+  background: #edf2f7;
+  color: #2d3748;
+  border: 1px solid #cbd5e0;
+}
+#m-mini-cal .fc .fc-daygrid-day-number {
+  padding: 2px 4px;
+  font-size: 11px;
+}
+#m-mini-cal .fc-daygrid-day.is-sat .fc-daygrid-day-number { color: #2b6cb0; }
+#m-mini-cal .fc-daygrid-day.is-sun .fc-daygrid-day-number { color: #c53030; }
+#m-mini-cal .mini-week-active {
+  background: rgba(43, 108, 176, 0.15) !important;
+}
+#m-mini-cal .mini-week-active.fc-day-today {
+  background: rgba(43, 108, 176, 0.28) !important;
+}
+#m-mini-cal .fc-daygrid-day-frame {
+  min-height: 32px;
+}
+
+/* 凡例 */
+#m-legend {
+  font-size: 12px;
+}
+.m-leg-block {
+  margin-bottom: 10px;
+}
+.m-leg-block-title {
+  font-size: 11px;
+  font-weight: bold;
+  color: #4a5568;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.m-leg-actions {
+  display: flex;
+  gap: 4px;
+}
+.m-leg-mini {
+  padding: 3px 8px;
+  background: #edf2f7;
+  border: 1px solid #cbd5e0;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  min-height: 26px;
+}
+.m-leg-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 2px;
+  border-bottom: 1px solid #f7fafc;
+  min-height: 34px;
+  cursor: pointer;
+}
+.m-leg-item input[type="checkbox"] {
+  width: 18px; height: 18px;
+  cursor: pointer;
+}
+.m-leg-color {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border-radius: 3px;
+}
+.m-leg-name {
+  flex: 1;
+  font-size: 12px;
+  color: #1a202c;
+}
+.m-leg-hours {
+  font-size: 10px;
+  color: #4a5568;
+  font-variant-numeric: tabular-nums;
+}
+.m-leg-empty {
+  padding: 10px 0;
+  text-align: center;
+  color: #a0aec0;
+}
+
+/* 常勤換算 人数内訳バー */
+.m-leg-fte {
+  padding: 6px 4px;
+  background: #f7fafc;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+.m-fte-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 11px;
+}
+.m-fte-label {
+  flex: 0 0 48px;
+  font-size: 10px;
+  color: #4a5568;
+}
+.m-fte-bar {
+  flex: 1;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.m-fte-fill {
+  display: block;
+  height: 100%;
+  background: #f09b54;
+  border-radius: 4px;
+  transition: width 0.2s ease;
+}
+.m-fte-row.is-filled .m-fte-fill { background: #56af80; }
+.m-fte-hours {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: #2d3748;
+}
+.fte-minus { color: #c53030; }
+
+/* ── ダイアログ（ボトムシート） ──────── */
+.m-modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  animation: m-modal-fade-in 0.15s ease;
+}
+@keyframes m-modal-fade-in {
+  from { background: rgba(0, 0, 0, 0); }
+  to { background: rgba(0, 0, 0, 0.5); }
+}
+.m-modal {
+  width: 100%;
+  max-height: 92vh;
+  background: #fff;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: m-modal-slide-up 0.2s ease;
+}
+@keyframes m-modal-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.m-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  border-radius: 12px 12px 0 0;
+}
+.m-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: bold;
+}
+.m-modal-close {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: #718096;
+  cursor: pointer;
+  padding: 0 6px;
+  min-width: 36px;
+}
+.m-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+.m-field {
+  margin-bottom: 12px;
+}
+.m-field label {
+  display: block;
+  font-size: 12px;
+  color: #4a5568;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.m-field select,
+.m-field input[type="date"],
+.m-field input[type="text"] {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  font-size: 15px;
+  min-height: 44px;
+  background: #fff;
+}
+.m-field small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #718096;
+}
+.m-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.m-row2 .m-field { margin-bottom: 0; }
+.m-break-row.is-disabled { opacity: 0.5; }
+.m-break-hint {
+  padding: 6px 10px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #2b6cb0;
+  background: #ebf8ff;
+  border-radius: 4px;
+  min-height: 16px;
+}
+.m-break-hint.is-none {
+  color: #718096;
+  background: #f7fafc;
+}
+
+.m-modal-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+  position: sticky;
+  bottom: 0;
+}
+.m-btn {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  min-height: 48px;
+  cursor: pointer;
+}
+.m-btn-cancel { color: #4a5568; }
+.m-btn-cancel:active { background: #edf2f7; }
+.m-btn-save {
+  background: #2b6cb0;
+  color: #fff;
+  border-color: #2b6cb0;
+}
+.m-btn-save:active { background: #2c5282; }
+.m-btn-save:disabled { background: #a0aec0; border-color: #a0aec0; }
+.m-btn-delete {
+  background: #fed7d7;
+  color: #c53030;
+  border-color: #feb2b2;
+  flex: 0 0 80px;
+}
+.m-btn-delete:active { background: #fbb6b6; }
+
+/* ── トースト ─────────────────────────── */
+.m-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%) translateY(20px);
+  padding: 10px 18px;
+  background: rgba(26, 32, 44, 0.92);
+  color: #fff;
+  border-radius: 22px;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 300;
+  max-width: 86vw;
+  text-align: center;
+}
+.m-toast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.m-toast.success { background: rgba(47, 133, 90, 0.95); }
+.m-toast.error   { background: rgba(197, 48, 48, 0.95); }
+.m-toast.warn    { background: rgba(181, 125, 28, 0.95); }
+
+/* ── kintone標準要素を隠す（モバイル一覧） ── */
+/* #m-shift-root は body.firstChild に挿入しているので、それ以降の兄弟要素を全部非表示に。
+ * ダイアログ(.m-modal-overlay)とトースト(#m-toast)は動的に body へ追加されるので除外。 */
+#m-shift-root ~ *:not(.m-modal-overlay):not(#m-toast) {
+  display: none !important;
+}
+
+/* 念のためkintoneモバイル既知のクラス名も直接非表示（バージョン差分対策） */
+.gaia-mobile-v2-app-recordlist,
+.gaia-mobile-v2-app-recordlist-header,
+.gaia-mobile-v2-app-recordlist-footer,
+.gaia-mobile-v2-app-recordlist-filter,
+.gaia-mobile-v2-app-recordlist-paging,
+.gaia-mobile-v2-app-recordlist-container,
+.gaia-mobile-v2-app-view,
+.gaia-mobile-v2-view-tabs,
+.gaia-mobile-app-view,
+.gaia-mobile-app-recordlist,
+.gaia-mobile-app-view-title,
+.gaia-mobile-app-view-selector,
+.mobile-header-global-navigation-container,
+.ocean-portal-mobile .recordlist-mobile {
+  display: none !important;
+}
