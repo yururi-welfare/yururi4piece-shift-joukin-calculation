@@ -33,7 +33,7 @@
     SHIFT_FIELDS: {
       employeeNumber: '従業員番号',
       employeeName:   '従業員名',
-      qualification:  '放デイゆるり_資格', // ルックアップでコピー取得される資格フィールド
+      qualification:  '放デイゆるり_常勤区分', // ルックアップでコピー取得される資格フィールド
       placementType:  '配置の種類',         // ドロップダウン（管理者兼児発管/常勤専従/常勤換算/休憩ヘルプ）
       startDate:      '開始日付',
       startTime:      '開始時間',

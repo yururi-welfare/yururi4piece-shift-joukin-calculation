@@ -102,7 +102,7 @@
     async fetchAllStaff() {
       if (allStaffCache !== null) return allStaffCache;
       const query =
-        '就業先 in ("放デイ　ゆるりフォーピース") order by 従業員番号 asc';
+        '就業先 in ("放デイ　ゆるりフォーピース　常勤換算シミュレーション") order by 従業員番号 asc';
       log('全スタッフ取得開始', { app: Config.EMPLOYEE_APP_ID, query });
       try {
         const res = await kintone.api(
@@ -116,7 +116,7 @@
             氏名:       r['氏名']           && r['氏名'].value,
             ふりがな:   (r['氏名_ふりがな'] && r['氏名_ふりがな'].value) || '',
             従業員番号: r['従業員番号']     && r['従業員番号'].value,
-            資格:       (r['放デイゆるり_資格'] && r['放デイゆるり_資格'].value) || '',
+            資格:       (r['放デイゆるり_常勤区分'] && r['放デイゆるり_常勤区分'].value) || '',
           }))
           .filter((e) => e.氏名)
           .sort((a, b) => {

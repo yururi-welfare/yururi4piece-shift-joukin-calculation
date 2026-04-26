@@ -53,7 +53,7 @@
     return `
       <header class="m-header">
         <button class="m-hamburger" type="button" aria-label="メニュー">☰</button>
-        <div class="m-title">放デイシフト</div>
+        <div class="m-title">放デイ　常勤換算シミュレーション</div>
         <button class="m-today" type="button">今日</button>
       </header>
       <div class="m-date-bar">
@@ -63,7 +63,7 @@
       </div>
       <nav class="m-tabs" role="tablist">
         <button class="m-tab is-active" data-tab="checklist">チェック表</button>
-        <button class="m-tab" data-tab="calendar">カレンダー</button>
+        <button class="m-tab" data-tab="calendar">現場シフト</button>
         <button class="m-tab" data-tab="simulation">シミュ</button>
       </nav>
       <main class="m-panels">

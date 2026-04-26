@@ -26,7 +26,7 @@
     if (existing) existing.remove();
   }
 
-  // 資格フィールド(放デイゆるり_資格) を読み取る。
+  // 資格フィールド(放デイゆるり_常勤区分) を読み取る。
   // kintone のフィールド種別によって value が string or 配列になりうるため両対応
   function readQualification(record) {
     const F = Config.SHIFT_FIELDS;

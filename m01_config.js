@@ -32,7 +32,7 @@
     SHIFT_FIELDS: {
       employeeNumber: '従業員番号',
       employeeName:   '従業員名',
-      qualification:  '放デイゆるり_資格',
+      qualification:  '放デイゆるり_常勤区分',
       placementType:  '配置の種類',
       startDate:      '開始日付',
       startTime:      '開始時間',
