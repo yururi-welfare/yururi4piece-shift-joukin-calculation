@@ -18,6 +18,7 @@
   let fc = null;
   let inited = false;
   let toastTimer = null;
+  let ctxMenuEl = null;
 
   // 画面中央下トースト（06_calendar.jsの閲覧専用トーストと同じCSSを使い回し）
   function showToast(msg) {
@@ -311,6 +312,88 @@
       .catch((e) => { err('[シミュ]日付マスタ取得失敗(背景)', e); failure(e); });
   }
 
+  // ── 右クリックメニュー（予定の週間コピー）
+  function addDaysToDateStr(dateStr, days) {
+    if (!dateStr) return dateStr;
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + days);
+    return toDateStr(dt);
+  }
+
+  function closeContextMenu() {
+    if (ctxMenuEl) { ctxMenuEl.remove(); ctxMenuEl = null; }
+    document.removeEventListener('click', closeContextMenu, true);
+    document.removeEventListener('contextmenu', closeContextMenu, true);
+    document.removeEventListener('keydown', onCtxKeyDown, true);
+  }
+  function onCtxKeyDown(e) { if (e.key === 'Escape') closeContextMenu(); }
+
+  function showContextMenu(x, y, items) {
+    closeContextMenu();
+    const menu = document.createElement('div');
+    menu.className = 'shift-sim-ctx-menu';
+    menu.style.cssText =
+      'position:fixed;z-index:10000;background:#fff;border:1px solid #d0d7de;' +
+      'border-radius:6px;box-shadow:0 6px 16px rgba(0,0,0,.18);padding:4px 0;' +
+      'min-width:220px;font-size:13px;';
+    items.forEach((it) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = it.label;
+      btn.style.cssText =
+        'display:block;width:100%;text-align:left;padding:8px 14px;' +
+        'border:none;background:transparent;cursor:pointer;color:#1a202c;';
+      btn.onmouseenter = () => { btn.style.background = '#f0f4f9'; };
+      btn.onmouseleave = () => { btn.style.background = 'transparent'; };
+      btn.onclick = (e) => { e.stopPropagation(); closeContextMenu(); it.onClick(); };
+      menu.appendChild(btn);
+    });
+    menu.style.left = x + 'px';
+    menu.style.top  = y + 'px';
+    document.body.appendChild(menu);
+    ctxMenuEl = menu;
+    // 画面はみ出し補正
+    const rect = menu.getBoundingClientRect();
+    if (rect.right  > window.innerWidth)  menu.style.left = (window.innerWidth  - rect.width  - 8) + 'px';
+    if (rect.bottom > window.innerHeight) menu.style.top  = (window.innerHeight - rect.height - 8) + 'px';
+    setTimeout(() => {
+      document.addEventListener('click',       closeContextMenu, true);
+      document.addEventListener('contextmenu', closeContextMenu, true);
+      document.addEventListener('keydown',     onCtxKeyDown,     true);
+    }, 0);
+  }
+
+  // 来週の同じ曜日にコピー（+7日で新規レコード作成）
+  async function copyEventToNextWeek(rec) {
+    const F = Config.SHIFT_FIELDS;
+    const sd = rec[F.startDate] && rec[F.startDate].value;
+    const ed = rec[F.endDate]   && rec[F.endDate].value;
+    if (!sd) { showToast('開始日付がないためコピーできません'); return; }
+    const newSd = addDaysToDateStr(sd, 7);
+    const newEd = ed ? addDaysToDateStr(ed, 7) : newSd;
+    const data = {
+      [F.employeeNumber]: (rec[F.employeeNumber] && rec[F.employeeNumber].value) || '',
+      [F.placementType]:  (rec[F.placementType]  && rec[F.placementType].value)  || '',
+      [F.startDate]:      newSd,
+      [F.startTime]:      (rec[F.startTime] && rec[F.startTime].value) || '',
+      [F.endDate]:        newEd,
+      [F.endTime]:        (rec[F.endTime]   && rec[F.endTime].value)   || '',
+      [F.breakStartTime]: (rec[F.breakStartTime] && rec[F.breakStartTime].value) || '',
+      [F.breakEndTime]:   (rec[F.breakEndTime]   && rec[F.breakEndTime].value)   || '',
+    };
+    log('[シミュ]来週コピー', { from: sd, to: newSd });
+    try {
+      await Api.createShift(data, Config.SIMULATION_APP_ID);
+      showToast(`来週(${newSd})にコピーしました`);
+      if (fc) fc.refetchEvents();
+      if (App.MonthlyHours) App.MonthlyHours.refreshCurrent();
+    } catch (e) {
+      err('[シミュ]来週コピー失敗', e);
+      alert('コピーに失敗しました（詳細はコンソール）');
+    }
+  }
+
   // 対象月を取得（ミニカレンダーの表示月 > FC view > 今日 の優先順）
   function getTargetMonth() {
     const MC = App.MiniCalendar;
@@ -433,6 +516,16 @@
           if (p.isMarker) return;
           if (p.placement != null) info.el.dataset.placement = p.placement || 'none';
           applyBreakOverlay(info.el, info.event, info.view);
+          // 右クリック → 「来週の同じ曜日にコピー」メニュー
+          info.el.addEventListener('contextmenu', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const rec = info.event.extendedProps && info.event.extendedProps.record;
+            if (!rec) return;
+            showContextMenu(ev.clientX, ev.clientY, [
+              { label: '来週の同じ曜日にコピー', onClick: () => copyEventToNextWeek(rec) },
+            ]);
+          });
         },
         select: (info) => {
           App.ShiftDialog.showCreate(info.start, info.end, () => {
